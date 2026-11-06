@@ -23,9 +23,16 @@ def main():
     parser.add_argument('--vocal-fade-bars', type=int, choices=(2, 4, 8), default=4)
     parser.add_argument('--blend-profile', choices=('standard', 'long_groove'), default='standard')
     parser.add_argument('--result-file', type=Path, help='Write the output/report paths for a calling job')
+    parser.add_argument('--learned-settings', action='store_true', help='Use the explicit-feedback ranker when ready; DSP checks still apply')
     args = parser.parse_args()
     reference = json.loads(args.pair_report.read_text(encoding='utf-8'))
     settings = Settings.from_env()
+    preference_selection=None
+    if args.learned_settings:
+        from backend.app.planning.preferences import PreferenceStore
+        preference_selection=PreferenceStore(settings.data_root/'feedback').settings(reference,args.vocal_fade_bars,args.blend_profile)
+        args.vocal_fade_bars=preference_selection['fade_bars'];args.blend_profile=preference_selection['profile']
+        print('Preference selection:',json.dumps(preference_selection),flush=True)
     storage = Storage(settings.data_root)
     storage.initialize()
     cues = reference['tracks']
@@ -111,7 +118,7 @@ def main():
             raise ValueError('Unexpected silent window in mid-song stem preview')
         del samples
         report = {'output': str(destination), 'reference_pair_report': str(args.pair_report.resolve()),
-                  'style': 'vocal_stem_handoff', 'duration': info.duration, 'target_bpm': reference['target_bpm'],
+                  'style': 'vocal_stem_handoff', 'preference_selection':preference_selection,'duration': info.duration, 'target_bpm': reference['target_bpm'],
                   'tracks': cues, 'transition_at_seconds': transition, 'overlap_seconds': overlap,
                   'pulse_alignment': alignment, 'instrumental_pulse_alignment': instrumental_alignment,
                   'windowed_instrumental_alignment': windowed_alignment,

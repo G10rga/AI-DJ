@@ -165,7 +165,44 @@ exists in the tested local environment. Algorithm references:
 [KMeans](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html),
 [Gaussian mixtures](https://scikit-learn.org/stable/modules/generated/sklearn.mixture.GaussianMixture.html).
 
-### Optional mid-song vocal handoff
+### Learning from listening feedback
+
+The local preference ranker learns candidate settings from explicit owner
+comparisons/ratings. Register real pair-render reports (audio identity is hashed):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.feedback register "D:\AI-DJ-data\renders\stem-pair-EXAMPLE.json"
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.feedback list
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.feedback prefer WINNER_ID LOSER_ID --notes "Smoother vocal handoff"
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.feedback rate CANDIDATE_ID 4
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.feedback status
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.feedback rank --pair PAIR_KEY
+```
+
+Comparisons require the same ordered songs. Current ratings produce within-pair
+comparisons; explicit preferences take precedence. Repeated votes do not inflate
+the dataset, and a reversed preference replaces its earlier training direction.
+The append-only event log remains in `D:\AI-DJ-data\feedback\preferences.sqlite3`.
+Every feedback event refits a regularized pairwise logistic model on differences
+in cue position, tempo gap, overlap, vocal fade/EQ and recipe settings. The first
+vote can change experimental rankings. Scores are relative, not calibrated
+probabilities of musical quality; no prior chat notes or synthetic tests are
+inserted as owner training labels.
+
+`ranker.json` records readable weights, scales, training candidate IDs and
+leave-one-song-pair-out validation. Mirrored examples remain within their song
+group. Six distinct comparisons across at least three ordered song pairs are
+required before learned selection is eligible; this is only a cold-start guard,
+not proof of quality. Sparse data and unobserved settings can still generalize
+poorly. Continue listening and comparing candidates on additional songs.
+
+Use `scripts.render_stem_pair ... --learned-settings` to opt into learned selection
+among supported fade-length/profile combinations. Before readiness it retains the
+specified defaults. Waveform/source-bound checks remain authoritative, and the
+selection is recorded in the render report. The library planner and ten-track
+experiment do not silently apply this new experimental model.
+
+### Local vocal separation
 
 Owner-authorized experiment: separate prepared excerpts into vocal and instrumental
 stems locally using the pretrained `UVR-MDX-NET-Inst_HQ_3.onnx` model. Crossfade/EQ
