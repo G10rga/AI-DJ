@@ -1,6 +1,6 @@
 # Handoff — AI DJ Set Maker
 
-**Project path:** `C:\Users\user\Desktop\AI-DJ`  
+**Project path:** `C:\Users\user\Documents\GitHub\AI-DJ`
 **Date of handoff:** 2026-11-06  
 **Prior context:** Design approved. Local foundation and milestone 2 two-track prototype implemented. Ten tests pass, including real FFmpeg decode/render, pitch preservation, tempo/beat timing, silence, and fallback checks. Real-music listening is pending; full-set planning and the web app are not implemented yet.
 
