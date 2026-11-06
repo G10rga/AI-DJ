@@ -12,6 +12,7 @@
 - After approval: write an implementation plan before large builds.  
 - Optimize for **transition quality** on house music; ML in v1 is order + transition style only.  
 - Deeper “learned blend sound” ML is explicitly future — do not sneak it into v1.  
+- Owner authorized an optional pretrained local vocal/instrumental separator on 2026-11-06 to mix mid-song with independent vocal fades. This is an explicit exception for source separation, not permission to train or generate learned blend curves. See `docs/superpowers/plans/2026-11-06-vocal-stem-transition.md`.
 - Personal tool on owner’s Ubuntu + domain; skip multi-user/billing polish.  
 
 ## Commits

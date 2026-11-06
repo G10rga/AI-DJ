@@ -110,4 +110,108 @@ The demo stores generated WAV fixtures on D: and prints its MP3/report paths. Te
 powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m unittest discover -s tests -v
 ```
 
-Current limits: analysis accepts tracks from 2 seconds to 20 minutes, tempo changes are limited to 6% per track, and phrase candidates are low-confidence heuristics. BPM alternatives expose half/double-time ambiguity without pretending it is resolved. Harmonic chroma features are cached; named key estimation is deferred. The prototype offers linear smooth crossfades and boundary fades; EQ/bass-swap recipes belong to the next renderer milestone. Synthetic checks establish timing, pitch, and decoding behavior, not musical quality. Real house tracks must be auditioned before claiming good automatic transitions.
+Beatmatched `auto` renders now use the `eq_swap` recipe. It brings in upper frequencies across the overlap, trades midrange over eight beats, and swaps bass over half a beat at an outgoing beat boundary. Overlap RMS is matched conservatively. The mix is written as unclipped float PCM, scanned, and encoded with a fixed gain reserving peak headroom. The mixer timeline is reset before the final fade, and decoded incoming-tail energy is compared with the prepared source to reject unexpectedly silent tails. Use `--style eq_swap` explicitly or `--style smooth` for the full-band crossfade comparison. Phase is measured on the stretched audio and corrected through the incoming cue. Ambiguous or drifting pulse estimates are rejected rather than described as successful beatmatching.
+
+Current limits: analysis accepts tracks from 2 seconds to 20 minutes, tempo changes are limited to 6% per track, and phrase candidates are low-confidence heuristics. An 8-bar duration or beat-aligned bass swap does not establish downbeat/phrase alignment. BPM alternatives expose half/double-time ambiguity without pretending it is resolved. Harmonic chroma features are cached; named key estimation, automatic vocal-conflict avoidance, and full-set rendering are deferred. Synthetic checks establish timing, spectral handoff, pitch, and decoding behavior, not musical quality. Real house tracks must be auditioned before claiming good automatic transitions.
+
+For sparse outro-to-intro cues, `--style lead_handoff` keeps the outgoing 180–4500 Hz lead band until its final beat and introduces the incoming lead after the outgoing excerpt ends. Incoming upper percussion can enter earlier; bass changes near the end of the overlap. This reduces simultaneous lead material. It does not identify singers, separate stems, or guarantee that a sung phrase has ended: select suitable source cues and listen. Lead handoffs match the incoming level against the outgoing solo/body section as well as the overlap, avoiding attenuation to an already quiet outro.
+
+### ML ordering and transition planning
+
+Fit an unsupervised model to a local collection and save a full track-order and
+transition plan (the full-set renderer/UI are still separate future work):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.plan_mix "D:\G1-Drive\Dj\AfroHouse" --compare
+```
+
+Add `--preview-best` to audition up to three compatible planned joins until one
+passes actual waveform validation, using the installed local vocal separator:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.plan_mix "D:\G1-Drive\Dj\AfroHouse" --compare --preview-best
+```
+
+`--preview-join 7` selects a particular one-based join. Explicit audio paths are
+also accepted; repeated files remain separate uploaded entries. Invalid audio
+prevents plan creation and produces an error report rather than silently dropping
+inputs. Use `--method baseline` for the DSP-only ordering objective and
+`--excerpt-seconds 180` to change the excerpt-duration target.
+
+The learned layer uses 45 timbral, chroma, energy, tempo and pulse-evidence
+features. It fits robust scaling, PCA and KMeans to distinct audio content, then
+orders entries using learned distance plus explicit tempo/energy constraints.
+A Gaussian mixture groups pair descriptors, suggesting long or short blends.
+Those group labels have no inherent musical meaning: a declared difficulty rule
+maps them to recipes. Small/degenerate collections explicitly fall back to simple
+groups. The model does not learn human quality ratings or blend curves.
+
+Regional low-frequency pulse analysis corrects unreliable whole-track estimates
+where possible. Planning guards retain every valid entry, cap stretching at 6%,
+keep source bounds and overlaps valid, and downgrade unsupported long blends to
+short or flagged boundary handoffs. Pulse evidence is not downbeat detection;
+approximate cue support must still pass real audio phase/drift checks. Named key,
+semantic phrase and lyric-end recognition remain unfinished.
+
+Readable model state is stored under `D:\AI-DJ-data\models`; JSON plans and
+Markdown summaries go under `D:\AI-DJ-data\plans`. Plans also round-trip through
+SQLite. Auditions preserve the planned common tempo and outgoing/incoming cues,
+using 32-bar long-groove or eight-bar EQ recipes plus separated vocal fades.
+Baseline comparisons report measurable similarities, not proven listening gains.
+
+The ML dependency is pinned by the optional `ml` extra (`.[audio,ml]`) and already
+exists in the tested local environment. Algorithm references:
+[PCA](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html),
+[KMeans](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html),
+[Gaussian mixtures](https://scikit-learn.org/stable/modules/generated/sklearn.mixture.GaussianMixture.html).
+
+### Optional mid-song vocal handoff
+
+Owner-authorized experiment: separate prepared excerpts into vocal and instrumental
+stems locally using the pretrained `UVR-MDX-NET-Inst_HQ_3.onnx` model. Crossfade/EQ
+the instrumentals independently, fade the outgoing vocal, and restore the incoming
+vocal before a detected vocal entry. No tracks are uploaded and no model is trained.
+Low-energy gaps in a separated vocal are heuristics, not verified lyric boundaries.
+Model leakage and separation artifacts remain possible.
+
+Vocal fades default to four bars (about eight seconds at house tempos), with
+outgoing brightness closing and incoming brightness opening gradually above
+1800 Hz. The fade affects the isolated vocal, not the instrumental bed. Use
+`--vocal-fade-bars 2`, `4`, or `8` to tune the pace; the selected excerpts must be
+long enough for the full handoff. Incoming gain now builds through a detected
+vocal entry rather than restoring to full volume inside a sub-second gap.
+
+Install the optional Python 3.12 environment, dependencies, model and caches on D:
+(this leaves the application's existing virtual environment intact):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup-separation.ps1
+```
+
+Use a JSON report from an already validated beatmatched pair, preserving its
+source cues and tempo alignment:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.render_stem_pair "D:\AI-DJ-data\renders\pair-EXAMPLE.json"
+```
+
+The worker processes one excerpt (maximum 180 seconds) and one model chunk at a
+time on CPU, caching float stems under `D:\AI-DJ-data\separation\stems`. The output
+is a stereo MP3 plus JSON report in the usual renders directory. Reports record
+the model hash/configuration, source reconstruction error, independent vocal
+schedule, instrumental beat alignment, headroom and decoded energy checks. The
+default pair renderer continues to use EQ without separation.
+
+For a long, gradual groove transition, first render a validated 32-bar reference
+with excerpts longer than its overlap (for example `--seconds 96 --bars 32` at
+120 BPM). Then pass that report to `scripts.render_stem_pair` with
+`--blend-profile long_groove --vocal-fade-bars 8`. This profile extends the
+instrumental midrange exchange to 16 bars (capped at half the overlap), trades
+bass over four beats, and layers the upper percussion across the whole overlap.
+It checks beat phase/drift in consecutive 16-second windows across long overlaps,
+including after source separation, to catch late beat slips. Eight-bar vocal
+fades take about 16 seconds at 120 BPM. Structural/lyric boundaries still require
+listening; a long blend does not automatically make two musical sections fit.
+
+Model sources: [UVR model repository](https://github.com/TRvlvr/model_repo) and
+[UVR model metadata](https://github.com/TRvlvr/application_data).

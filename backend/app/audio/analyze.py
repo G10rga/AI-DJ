@@ -11,7 +11,7 @@ from backend.app.storage import Storage
 from .probe import AudioError, probe, run_audio
 from .structure import phrase_candidates
 
-VERSION = "pair-analysis-2"
+VERSION = "pair-analysis-3"
 SAMPLE_RATE = 11025
 HOP = 256
 MAX_SECONDS = 1200
@@ -72,15 +72,25 @@ def analyze(path: Path, settings: Settings, storage: Storage) -> dict:
     if bpm is None:
         warnings.append("No stable beat grid detected; use a short boundary fade or supply BPM manually.")
     profile = np.zeros(12)
+    mfcc_mean, mfcc_std = np.zeros(13), np.zeros(13)
+    spectral_summary = [0.0, 0.0, 0.0]
     if float(np.max(energy)) > 1e-5:
         spectrum = np.abs(librosa.stft(samples, n_fft=2048, hop_length=HOP))
         chroma = librosa.feature.chroma_stft(S=spectrum**2, sr=SAMPLE_RATE, n_fft=2048, hop_length=HOP)
         profile = np.mean(chroma, axis=1)
+        mel = librosa.feature.melspectrogram(S=spectrum**2, sr=SAMPLE_RATE, n_fft=2048, n_mels=64)
+        mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel), n_mfcc=13)
+        mfcc_mean, mfcc_std = np.mean(mfcc, axis=1), np.std(mfcc, axis=1)
+        centroid = librosa.feature.spectral_centroid(S=spectrum, sr=SAMPLE_RATE)[0]
+        flatness = librosa.feature.spectral_flatness(S=spectrum)[0]
+        spectral_summary = [float(np.mean(centroid)), float(np.std(centroid)), float(np.mean(flatness))]
     profile /= max(float(np.sum(profile)), 1e-8)
     # Chroma is retained for future pair scoring; no unsupported key label is asserted.
     result = {"version": VERSION, "config": CONFIG, "content_hash": digest, "audio": asdict(info),
               "bpm": bpm, "tempo_alternatives": alternatives, "beat_confidence": round(confidence, 4),
               "beats_seconds": np.round(beats, 4).tolist(), "chroma": profile.tolist(),
+              "mfcc_mean": mfcc_mean.tolist(), "mfcc_std": mfcc_std.tolist(),
+              "spectral_summary": spectral_summary,
               "energy": energy[::8].tolist(), "energy_frame_seconds": HOP * 8 / SAMPLE_RATE,
               "phrase_candidates": phrase_candidates(beats, energy, HOP / SAMPLE_RATE), "warnings": warnings}
     temporary_cache = cache.with_name(cache.stem + "." + uuid4().hex + ".tmp")

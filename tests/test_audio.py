@@ -13,6 +13,9 @@ if AUDIO_AVAILABLE:
     from backend.app.audio.pair import render_pair
     from backend.app.audio.probe import AudioError, probe, run_audio
     from backend.app.audio.stretch import prepare_excerpt, tempo_ratio
+    from backend.app.audio.phase import pulse_grid, compare_grids
+    from backend.app.audio.recipes import eq_swap_graph
+    from backend.app.planning.rhythm import analyze_rhythm
     from backend.app.config import Settings
     from backend.app.storage import Storage
     from scripts.synthetic_audio import write_fixture
@@ -61,6 +64,10 @@ class AudioTests(unittest.TestCase):
         self.assertLess(float(np.median(errors)), 0.05)
         self.assertEqual(result, analyze(self.a, self.settings, self.storage))
         self.assertTrue(result["warnings"])
+        misleading = {**result, 'bpm': 160.0}
+        regional = analyze_rhythm(self.a, misleading, self.settings, self.storage)
+        self.assertTrue(regional['reliable'])
+        self.assertAlmostEqual(regional['bpm'], 120, delta=.15)
 
     def test_silence_does_not_invent_tempo(self):
         silence = self.root / "silence.wav"
@@ -96,6 +103,8 @@ class AudioTests(unittest.TestCase):
                              starts=(0.5, 0.5), seconds=22, bpms=(120, 124), style="smooth")
         self.assertEqual(report["style"], "smooth")
         self.assertEqual(report["audio"]["channels"], 2)
+        self.assertLessEqual(abs(report['pulse_alignment']['incoming_delay_seconds']), .012)
+        self.assertLessEqual(abs(report['pulse_alignment']['drift_seconds']), .025)
         self.assertTrue(Path(report["report"]).exists())
         self.assertAlmostEqual(report["audio"]["duration"], report["expected_seconds"], delta=0.15)
         # Full decode validates the compressed deliverable and its peak headroom.
@@ -104,6 +113,15 @@ class AudioTests(unittest.TestCase):
         samples = np.fromfile(decoded, dtype="<f4")
         self.assertTrue(np.all(np.isfinite(samples)))
         self.assertLess(float(np.max(np.abs(samples))), 1)
+        eq_report = render_pair((self.a, self.b), results, self.settings, self.storage,
+                                starts=(.5, .5), seconds=22, bpms=(120, 124), style='eq_swap', target_bpm=121)
+        self.assertEqual(eq_report['style'], 'eq_swap')
+        self.assertEqual(eq_report['target_bpm'], 121)
+        recipe = eq_report['recipe']
+        levels = [level * gain for level, gain in zip(recipe['overlap_rms_before_gain'], recipe['track_gains'])]
+        self.assertAlmostEqual(*levels, places=7)
+        self.assertLessEqual(recipe['mixed_pcm_peak'] * recipe['post_mix_gain'], .820001)
+        self.assertGreater(eq_report['incoming_tail_check']['decoded_rms'], .02)
         fallback = render_pair((self.a, self.b), results, self.settings, self.storage,
                                starts=(0.5, 0.5), seconds=3, bpms=(90, 140))
         self.assertEqual(fallback["style"], "boundary_fade")
@@ -114,6 +132,109 @@ class AudioTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_pair((self.a, self.b), results, self.settings, self.storage,
                         seconds=3, bpms=(120, 124), style="smooth")
+        for invalid_target in (float('nan'), 0, 160):
+            with self.assertRaises(ValueError):
+                render_pair((self.a, self.b), results, self.settings, self.storage,
+                            seconds=22, bpms=(120, 124), style='eq_swap', target_bpm=invalid_target)
+
+    def test_pulse_measurement_detects_offset_and_drift(self):
+        reference = self.root / 'phase-reference.wav'
+        shifted = self.root / 'phase-shifted.wav'
+        prepare_excerpt(self.a, reference, 1, 11, 120, 120, self.settings)
+        prepare_excerpt(self.a, shifted, 1.1, 11.1, 120, 120, self.settings)
+        first = pulse_grid(reference, 0, 10, .5)
+        second = pulse_grid(shifted, 0, 10, .5)
+        measured = compare_grids(first, second, 10)
+        self.assertAlmostEqual(measured['incoming_delay_seconds'], .1, delta=.01)
+        self.assertLess(abs(measured['drift_seconds']), .01)
+        fast = self.root / 'phase-fast.wav'
+        prepare_excerpt(self.a, fast, 1, 11.1, 120, 121.2, self.settings)
+        drifting = compare_grids(first, pulse_grid(fast, 0, 10, .5), 10)
+        self.assertGreater(abs(drifting['drift_seconds']), .07)
+
+    def test_pulse_measurement_keeps_kicks_near_louder_syncopation(self):
+        rate, seconds = 44100, 16
+        kick = np.arange(round(.04 * rate)) / rate
+        pulse = np.exp(-kick * 100) * np.cos(2*np.pi*80*kick)
+        clean = np.zeros(rate * seconds)
+        busy = np.zeros_like(clean)
+        for index, beat in enumerate(np.arange(.5, seconds - .5, .5)):
+            position = round(beat * rate)
+            clean[position:position+len(pulse)] += .3 * pulse
+            busy[position:position+len(pulse)] += .3 * pulse
+            # Stronger nearby notes must not suppress the actual kick events.
+            position = round((beat + (.12 if index % 2 else -.12)) * rate)
+            busy[position:position+len(pulse)] += .5 * pulse
+        paths = [self.root / 'clean-kicks.wav', self.root / 'syncopated-kicks.wav']
+        for path, samples in zip(paths, (clean, busy)):
+            with wave.open(str(path), 'wb') as audio:
+                audio.setparams((1, 2, rate, 0, 'NONE', 'not compressed'))
+                audio.writeframes((samples * 32767).astype('<i2').tobytes())
+        grids = [pulse_grid(path, 0, seconds, .5) for path in paths]
+        comparison = compare_grids(*grids, seconds)
+        self.assertLess(abs(comparison['incoming_delay_seconds']), .01)
+        self.assertLess(abs(comparison['drift_seconds']), .01)
+
+    def test_eq_swap_preserves_bass_ownership_and_percussion_overlap(self):
+        rate, seconds = 44100, 24
+        time = np.arange(seconds * rate) / rate
+        sources = []
+        for index, frequencies in enumerate(((55, 700, 4000), (90, 1100, 6000))):
+            samples = sum(level * np.sin(2*np.pi*frequency*time)
+                          for level, frequency in zip((.18, .05, .02), frequencies))
+            path = self.root / f'eq-source-{index}.wav'
+            stereo = np.column_stack((samples, samples * .9))
+            with wave.open(str(path), 'wb') as audio:
+                audio.setparams((2, 2, rate, 0, 'NONE', 'not compressed'))
+                audio.writeframes((stereo * 32767).astype('<i2').tobytes())
+            sources.append(path)
+        graph, recipe = eq_swap_graph((1, 1), 24, 24, 16, 120)
+        output = self.root / 'eq-result.wav'
+        run_audio([self.settings.ffmpeg, '-v', 'error', '-nostdin', '-i', str(sources[0]),
+                   '-i', str(sources[1]), '-filter_complex', graph, '-map', '[out]',
+                   '-c:a', 'pcm_s16le', str(output)])
+        with wave.open(str(output), 'rb') as audio:
+            self.assertEqual(audio.getnchannels(), 2)
+            self.assertAlmostEqual(audio.getnframes()/rate, 32, delta=.01)
+            samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype='<i2').reshape(-1, 2) / 32768
+        def amplitude(start, frequency):
+            segment = samples[start*rate:(start+1)*rate, 0]
+            return 2 * abs(np.mean(segment * np.exp(-2j*np.pi*frequency*np.arange(rate)/rate)))
+        # Bass changes owner, rather than two low ends fading for all 16 seconds.
+        self.assertGreater(amplitude(12, 55), .14)
+        self.assertLess(amplitude(12, 90), .02)
+        self.assertGreater(amplitude(20, 90), .14)
+        self.assertLess(amplitude(20, 55), .01)
+        # Percussion from both sources can coexist before the bass swap.
+        self.assertGreater(amplitude(12, 4000), .01)
+        self.assertGreater(amplitude(12, 6000), .005)
+        self.assertGreater(amplitude(12, 700), .035)
+        self.assertLess(amplitude(12, 1100), .01)
+        self.assertGreater(amplitude(20, 1100), .035)
+        self.assertLess(amplitude(20, 700), .01)
+        # Incoming track must continue after the outgoing source reaches EOF.
+        self.assertGreater(amplitude(28, 90), .14)
+        self.assertGreater(amplitude(28, 1100), .035)
+        self.assertLess(float(np.max(abs(samples))), .91)
+        self.assertAlmostEqual(recipe['bass_swap_at_seconds'], 16)
+        # Protecting the lead delays incoming melody until outgoing EOF.
+        graph, protected = eq_swap_graph((1, 1), 24, 24, 16, 120, protect_lead=True)
+        output = self.root / 'lead-handoff.wav'
+        run_audio([self.settings.ffmpeg, '-v', 'error', '-nostdin', '-i', str(sources[0]),
+                   '-i', str(sources[1]), '-filter_complex', graph, '-map', '[out]',
+                   '-c:a', 'pcm_s16le', str(output)])
+        with wave.open(str(output), 'rb') as audio:
+            samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype='<i2').reshape(-1, 2) / 32768
+        self.assertGreater(amplitude(20, 700), .035)
+        self.assertGreater(amplitude(22, 700), .035)
+        self.assertLess(amplitude(20, 1100), .003)
+        self.assertLess(amplitude(23, 1100), .003)
+        self.assertGreater(amplitude(25, 1100), .035)
+        self.assertLess(amplitude(25, 700), .003)
+        self.assertGreater(amplitude(28, 90), .14)
+        self.assertEqual(protected['outgoing_lead_ends_at_seconds'], 24)
+        self.assertEqual(protected['incoming_lead_starts_at_seconds'], 24)
+        self.assertEqual(protected['vocal_detection'], 'not_performed')
 
 
 if __name__ == "__main__":

@@ -39,3 +39,42 @@ def pcm_peak(path: Path) -> float:
             data = np.frombuffer(block, dtype="<i2").astype(np.float32) / 32768
             peak = max(peak, float(np.max(np.abs(data))))
     return peak
+
+
+def pcm_rms(path: Path, start: float, seconds: float) -> float:
+    total = 0.0
+    count = 0
+    with wave.open(str(path), 'rb') as audio:
+        audio.setpos(round(start * audio.getframerate()))
+        remaining = round(seconds * audio.getframerate())
+        while remaining > 0:
+            frames = min(65536, remaining)
+            block = audio.readframes(frames)
+            if not block:
+                break
+            samples = np.frombuffer(block, dtype='<i2').astype(np.float64) / 32768
+            total += float(np.dot(samples, samples))
+            count += len(samples)
+            remaining -= frames
+    return math.sqrt(total / max(1, count))
+
+
+def float_pcm_peak(path: Path) -> float:
+    """Scan interleaved float PCM without clipping it or loading a full render."""
+    return float_pcm_levels(path)[0]
+
+
+def float_pcm_levels(path: Path) -> tuple[float, float]:
+    peak = 0.0
+    total = 0.0
+    count = 0
+    with path.open('rb') as audio:
+        while block := audio.read(65536 * 4):
+            samples = np.frombuffer(block, dtype='<f4')
+            if not np.all(np.isfinite(samples)):
+                raise AudioError('Mixed PCM contains invalid samples')
+            peak = max(peak, float(np.max(np.abs(samples))))
+            values = samples.astype(np.float64)
+            total += float(np.dot(values, values))
+            count += len(values)
+    return peak, math.sqrt(total / max(1, count))

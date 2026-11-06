@@ -18,9 +18,10 @@ def main():
     parser.add_argument("--b-in", type=float, help="Second excerpt source start in seconds")
     parser.add_argument("--a-bpm", type=float, help="Verified BPM override")
     parser.add_argument("--b-bpm", type=float, help="Verified BPM override")
+    parser.add_argument('--target-bpm', type=float, help='Explicit shared tempo within the stretch limit')
     parser.add_argument("--seconds", type=float, default=120, help="Target output seconds per excerpt")
     parser.add_argument("--bars", type=int, choices=(8, 32), default=8)
-    parser.add_argument("--style", choices=("auto", "smooth", "boundary_fade"), default="auto")
+    parser.add_argument("--style", choices=("auto", "smooth", "eq_swap", "lead_handoff", "boundary_fade"), default="auto")
     parser.add_argument("--analyze-only", action="store_true")
     args = parser.parse_args()
     try:
@@ -39,7 +40,8 @@ def main():
             return 0
         print("Rendering transition...", flush=True)
         report = render_pair(paths, tuple(results), settings, storage, starts=(args.a_in, args.b_in),
-                             seconds=args.seconds, bars=args.bars, bpms=(args.a_bpm, args.b_bpm), style=args.style)
+                             seconds=args.seconds, bars=args.bars, bpms=(args.a_bpm, args.b_bpm), style=args.style,
+                             target_bpm=args.target_bpm)
         print(f"Audio: {report['output']}\nReport: {report['report']}")
         print(f"Style: {report['style']}; overlap: {report['overlap_seconds']:.2f}s")
         for warning in report["warnings"]:

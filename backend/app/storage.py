@@ -7,7 +7,7 @@ from uuid import uuid4
 
 
 class Storage:
-    AREAS = {"uploads", "analysis", "tmp", "renders"}
+    AREAS = {"uploads", "analysis", "tmp", "renders", "plans", "models"}
 
     def __init__(self, root: Path):
         self.root = Path(root).resolve()

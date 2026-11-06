@@ -2,7 +2,7 @@
 
 Date: 2026-11-06
 Design: [Approved design](../specs/2026-10-30-ai-dj-set-design.md)
-Status: Milestone 1 foundation and milestone 2 two-track prototype implemented; ten tests pass. FFmpeg/ffprobe 9.0.2 and Rubber Band validated with actual renders. Synthetic tests verify timing, pitch, stereo, silence, corrupt audio, and fallback behavior. Real-music listening remains required. Named key estimation is deferred; chroma features are retained. Application data uses D: through `scripts/local.ps1`. Next: real-pair evaluation, then milestone 3 planning.
+Status (2026-11-07): Milestones 1–3 implemented, including cached DSP/timbre and local rhythm features, unsupervised ordering/style suggestions, bounded valid excerpts, baseline comparison and SQLite persistence. Owner accepted the long reference blend. Local vocal separation and deterministic stem recipes are implemented as an authorized extension. All 29 tests pass; a model/plan was generated for all 16 local songs and an ML-selected long pair was rendered/validated. Named key, semantic phrase detection, full-set audio rendering, queue/API and UI remain unfinished. Application data stays on D: through `scripts/local.ps1`. See `2026-11-06-ml-planning.md` for the executed ML scope.
 
 ## Scope and approach
 

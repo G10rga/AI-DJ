@@ -27,7 +27,7 @@ House sets live or die on transitions. Existing “mashup” toys often produce 
 
 ## Non-goals (v1)
 
-- Stems, cue markers, or export for Serato/Rekordbox/etc.
+- Public stem export, cue markers, or export for Serato/Rekordbox/etc. Owner authorized internal pretrained vocal/instrumental separation on 2026-11-06 for independent vocal handoffs.
 - Streaming catalogs, YouTube ingest, or commercial licensing of music.
 - Multi-user accounts, billing, or public product polish.
 - Generative / learned “how the blend sounds” (EQ curves, mash overlays, AI audio). Explicit **future** feature.
@@ -78,6 +78,13 @@ Per track: BPM, beat grid, key (or camelot-style), energy over time, coarse stru
 - No labeled mix dataset required.
 
 ### Transition plan + render (DSP)
+
+**Owner extension (2026-11-06):** Support an optional mid-song experiment using
+pretrained local vocal/instrumental separation. Keep the instrumental groove
+running, fade the outgoing vocal separately, then introduce the incoming vocal.
+Audio stays local. This is source separation plus deterministic mixing, not
+training/generating a blend model or providing a public stem-export feature.
+Separation leakage/artifacts and heuristic vocal-gap timing require listening.
 
 - Align in/out to bars/phrases from the beat grid.
 - Choose DJ-style excerpts rather than playing full tracks. Exact excerpt duration is a builder tuning decision; no fixed duration has been approved.
