@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Timeline review · AI-DJ</title>
+  <link rel="stylesheet" href="/assets/editor.css">
+  <link rel="stylesheet" href="/assets/mixes.css">
+  <script src="/assets/editor.js" defer></script>
+</head>
+<body>
+  <header class="shell"><a href="/" class="brand" aria-label="AI-DJ home"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 17V11M9 23V5M15 27V1M21 20V8M27 17V11"/></svg>AI-DJ</a><nav class="page-nav" aria-label="Main navigation"><a href="/mixes">Mixes</a><a href="/timelines" aria-current="page">Timelines</a></nav><span class="local">Local library</span></header>
+  <main>
+    <aside aria-label="Track library">
+      <h2>Your tracks</h2>
+      <label for="filter" class="sr-only">Find a track</label><input id="filter" type="search" placeholder="Find a track">
+      <nav id="tracks" aria-label="Analyzed tracks"></nav>
+      <p class="hint">Analyzed songs appear here. Musical estimates remain open to correction.</p>
+    </aside>
+    <section class="workspace">
+      <div class="title-row"><div><h1 id="song">Review a song’s timeline</h1><p id="summary">Choose an analyzed track to inspect its musical timing.</p></div><span id="revision" class="status">No track selected</span></div>
+      <div id="message" role="status" aria-live="polite"></div>
+      <div id="empty" class="empty"><h2>Start with the music</h2><p>Your library has no musical timelines yet. Analyze a song locally, then reload this page.</p><button id="reload">Reload library</button></div>
+      <div id="editor" hidden>
+        <section class="timeline-panel" aria-label="Musical timeline">
+          <div class="panel-heading"><h2>Musical evidence</h2><div class="zoom"><label for="zoom">View</label><select id="zoom"><option value="0">Whole song</option><option value="60">60 seconds</option><option value="30">30 seconds</option></select></div></div>
+          <div class="legend"><span class="energy-key">Energy</span><span class="vocal-key">Vocal activity</span><span class="bar-key">Downbeat</span><span class="phrase-key">Phrase candidate</span></div>
+          <svg id="timeline" viewBox="0 0 1000 230" role="img" aria-label="Song energy, vocal activity and musical markers"></svg>
+          <label for="seek" class="sr-only">Seek through the song</label><input id="seek" type="range" min="0" max="1" step="0.01" value="0">
+          <div class="transport"><span id="position">0:00 / 0:00</span><span>Use the slider or click the timeline to seek</span></div>
+          <audio id="audio" controls preload="metadata" aria-label="Source track playback"></audio>
+        </section>
+        <div class="details-grid">
+          <section class="corrections">
+            <div class="panel-heading"><h2>Correct the timing</h2><button id="save" class="primary" disabled>Save corrections</button></div>
+            <p>Place a marker at the playhead, or remove an incorrect estimate. Saving keeps the original predictions.</p>
+            <div class="toolbar"><div class="field"><label for="kind">Markers</label><select id="kind"><option value="downbeats">Downbeats</option><option value="beats">Beats</option><option value="phrase_boundaries">Phrase candidates</option></select></div><div class="field"><label for="time">Seconds</label><input id="time" type="number" min="0" step="0.01" value="0"></div><button id="add">Add marker</button></div>
+            <label for="note">Correction note <span class="muted">(optional)</span></label><input id="note" maxlength="2000" placeholder="What did you hear?">
+            <div class="marker-table"><table><thead><tr><th>Marker</th><th>Time</th><th>Action</th></tr></thead><tbody id="markers"></tbody></table></div>
+            <div class="foot-actions"><button id="discard">Discard unsaved edits</button><button id="restore">Use original estimates</button><span id="dirty">All changes saved</span></div>
+          </section>
+          <section class="evidence"><h2>What to review</h2><p id="vocal-status"></p><p id="confidence">Model confidence is not calibrated. Listen before accepting a bar or phrase.</p><dl id="facts"></dl><h3>Section changes</h3><ul id="sections"></ul><h3>Correction history</h3><ol id="history"></ol></section>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

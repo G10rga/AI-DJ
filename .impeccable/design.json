@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-07T19:20:50.308Z",
+  "title": "Design System: AI-DJ",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "True Black",
+        "canonical": "#000",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Listening Surface",
+        "canonical": "#111",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Hover Charcoal",
+        "canonical": "#242424",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "control": {
+        "role": "neutral",
+        "displayName": "Control Gray",
+        "canonical": "#444",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "White",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Supporting Gray",
+        "canonical": "#b4b4b4",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Energy Lime",
+        "canonical": "#c6f24e",
+        "tonalRamp": [
+          "oklch(15% 0.054 122)",
+          "oklch(27% 0.117 122)",
+          "oklch(39% 0.153 122)",
+          "oklch(51% 0.180 122)",
+          "oklch(63% 0.180 122)",
+          "oklch(75% 0.153 122)",
+          "oklch(87% 0.099 122)",
+          "oklch(95% 0.036 122)"
+        ]
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "Timing Amber",
+        "canonical": "#e5a93b",
+        "tonalRamp": [
+          "oklch(15% 0.042 78)",
+          "oklch(27% 0.091 78)",
+          "oklch(39% 0.119 78)",
+          "oklch(51% 0.140 78)",
+          "oklch(63% 0.140 78)",
+          "oklch(75% 0.119 78)",
+          "oklch(87% 0.077 78)",
+          "oklch(95% 0.028 78)"
+        ]
+      },
+      "error": {
+        "role": "secondary",
+        "displayName": "Error Rose",
+        "canonical": "#ff8a91",
+        "tonalRamp": [
+          "oklch(15% 0.042 15)",
+          "oklch(27% 0.091 15)",
+          "oklch(39% 0.119 15)",
+          "oklch(51% 0.140 15)",
+          "oklch(63% 0.140 15)",
+          "oklch(75% 0.119 15)",
+          "oklch(87% 0.077 15)",
+          "oklch(95% 0.028 15)"
+        ]
+      },
+      "pressed": {
+        "role": "neutral",
+        "displayName": "Pressed Charcoal",
+        "canonical": "#333",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "primary-hover": {
+        "role": "neutral",
+        "displayName": "Pale Gray",
+        "canonical": "#ddd",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "placeholder": {
+        "role": "neutral",
+        "displayName": "Placeholder Gray",
+        "canonical": "#a2a2a2",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "Divider Gray",
+        "canonical": "#252525",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "waveform": {
+        "role": "neutral",
+        "displayName": "Waveform Gray",
+        "canonical": "#343434",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "vocal": {
+        "role": "neutral",
+        "displayName": "Vocal Gray",
+        "canonical": "#909090",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      },
+      "beat": {
+        "role": "neutral",
+        "displayName": "Beat Gray",
+        "canonical": "#555",
+        "tonalRamp": [
+          "oklch(15% 0.000 0)",
+          "oklch(27% 0.000 0)",
+          "oklch(39% 0.000 0)",
+          "oklch(51% 0.000 0)",
+          "oklch(63% 0.000 0)",
+          "oklch(75% 0.000 0)",
+          "oklch(87% 0.000 0)",
+          "oklch(95% 0.000 0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Track or mix title",
+        "purpose": "Wrap long filenames; 20px at the mobile breakpoint."
+      },
+      "headline": {
+        "displayName": "Section heading",
+        "purpose": "Major editor and listening sections."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base text; explanatory paragraphs use line-height 1.6."
+      },
+      "section-label": {
+        "displayName": "Evidence section label",
+        "purpose": "History and section-change subheadings."
+      },
+      "label": {
+        "displayName": "Working label",
+        "purpose": "Final 13px table, evidence and correction-label styles."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Library subtitle, legend, transport and revision; mobile legend is 11px."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "tablet-and-narrower",
+        "value": "1100px"
+      },
+      {
+        "name": "mobile",
+        "value": "650px"
+      },
+      {
+        "name": "wide-header",
+        "value": "1800px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Save pending marker corrections; disable when unchanged or saving.",
+      "html": "<button class=\"ds-primary\">Save corrections</button>",
+      "css": ".ds-primary{font-family:Inter,system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;background:var(--text,#fff);color:var(--ground,#000);border-color:var(--text,#fff)}.ds-primary:hover{background:#ddd}.ds-primary:active{background:var(--text,#fff)}.ds-primary:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-primary:disabled{cursor:default;opacity:.5}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined action for adding markers or restoring estimates.",
+      "html": "<button class=\"ds-secondary\">Add marker</button>",
+      "css": ".ds-secondary{font-family:Inter,system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;background:transparent;color:var(--text,#fff)}.ds-secondary:hover{background:var(--raised,#242424)}.ds-secondary:active{background:#333}.ds-secondary:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-secondary:disabled{cursor:default;opacity:.5}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Search or note field with muted placeholder and lime focus/caret.",
+      "html": "<input class=\"ds-input\" aria-label=\"Correction note\" placeholder=\"What did you hear?\">",
+      "css": ".ds-input{font-family:Inter,system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;cursor:text;min-width:0;width:100%;background:transparent;color:var(--text,#fff);caret-color:var(--accent,#c6f24e)}.ds-input::placeholder{color:#a2a2a2}.ds-input:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}"
+    },
+    {
+      "name": "Track navigation",
+      "kind": "nav",
+      "refersTo": "track-current",
+      "description": "Selected library entry with a wrapping filename and quiet subtitle.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Analyzed tracks\"><button aria-current=\"true\">I Move (Lyrics).mp3<small>Review musical timeline</small></button></nav>",
+      "css": ".ds-nav{display:grid;gap:5px}.ds-nav button{font-family:Inter,system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;text-align:left;min-height:62px;border:0;line-height:1.5;overflow-wrap:anywhere;padding:10px 12px;background:transparent;color:var(--muted,#b4b4b4)}.ds-nav button[aria-current=true]{background:var(--surface,#111);color:var(--text,#fff)}.ds-nav button:hover{background:var(--raised,#242424)}.ds-nav button:active{background:#333}.ds-nav button:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-nav button:disabled{opacity:.5;cursor:default}.ds-nav small{display:block;font-size:12px;margin-top:3px;color:var(--muted,#b4b4b4)}"
+    },
+    {
+      "name": "Timeline container and view control",
+      "kind": "custom",
+      "refersTo": "timeline-panel",
+      "description": "Flat listening surface and semantic legend; geometry is supplied only by real analysis at runtime.",
+      "html": "<section class=\"ds-timeline\" aria-label=\"Musical timeline\"><div class=\"ds-heading\"><h2>Musical evidence</h2><label>View <select><option>Whole song</option><option>60 seconds</option><option>30 seconds</option></select></label></div><div class=\"ds-legend\"><span class=\"ds-energy\">Energy</span><span class=\"ds-vocal\">Vocal activity</span><span class=\"ds-downbeat\">Downbeat</span><span class=\"ds-phrase\">Phrase candidate</span></div></section>",
+      "css": ".ds-timeline{font-family:Inter,system-ui,sans-serif;color:var(--text,#fff);background:var(--surface,#111);border-radius:12px;padding:20px}.ds-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}.ds-heading h2{font-size:16px;font-weight:600;margin:0}.ds-heading label{font-size:12px;color:var(--muted,#b4b4b4);display:flex;align-items:center;gap:10px}.ds-heading select{font-family:Inter,system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;background:var(--surface,#111);color:var(--text,#fff)}.ds-heading select:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-legend{display:flex;flex-wrap:wrap;gap:22px;color:var(--muted,#b4b4b4);font-size:12px;margin:20px 0 8px}.ds-legend span:before{content:'';display:inline-block;width:14px;height:3px;margin:0 7px 3px 0;background:var(--accent,#c6f24e)}.ds-legend .ds-vocal:before{background:#888;height:8px;margin-bottom:0}.ds-legend .ds-downbeat:before{background:#fff;width:2px;height:10px;margin-bottom:0}.ds-legend .ds-phrase:before{background:var(--warning,#e5a93b);width:2px;height:10px;margin-bottom:0}@media(max-width:650px){.ds-timeline{padding:16px 12px}.ds-heading{gap:10px}.ds-heading h2{font-size:15px}.ds-heading label{gap:6px}.ds-heading select{max-width:112px;font-size:12px}.ds-legend{gap:12px;font-size:11px}}"
+    },
+    {
+      "name": "Marker table",
+      "kind": "custom",
+      "description": "Compact timing rows with right-aligned seek and removal actions; sampled values come from the reviewed screenshot.",
+      "html": "<div class=\"ds-table-scroll\"><table class=\"ds-table\"><thead><tr><th>Marker</th><th>Time</th><th>Action</th></tr></thead><tbody><tr><td>Downbeat 1</td><td><button aria-label=\"Seek to 0.18 seconds\">0.18 s</button></td><td><button aria-label=\"Remove downbeat at 0.18 seconds\">Remove</button></td></tr></tbody></table></div>",
+      "css": ".ds-table-scroll{max-height:245px;overflow:auto;scrollbar-color:#555 #111;scrollbar-width:thin}.ds-table{border-collapse:collapse;width:100%;font-family:Inter,system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;color:var(--text,#fff)}.ds-table th{text-align:left;color:var(--muted,#b4b4b4);font-weight:400;position:sticky;top:0;background:var(--ground,#000)}.ds-table th,.ds-table td{padding:9px 4px;border-bottom:1px solid #252525}.ds-table td:nth-child(2),.ds-table th:nth-child(2),.ds-table td:last-child,.ds-table th:last-child{text-align:right}.ds-table button{font-family:Inter,system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;font-size:13px;min-height:30px;padding:4px 8px;border:0;background:transparent;color:var(--text,#fff)}.ds-table button:hover{background:var(--raised,#242424)}.ds-table button:active{background:#333}.ds-table button:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-table button:disabled{opacity:.5;cursor:default}"
+    },
+    {
+      "name": "Main navigation",
+      "kind": "nav",
+      "description": "Shared text navigation between mix listening and source correction.",
+      "html": "<nav class=\"ds-pages\" aria-label=\"Main navigation\"><a href=\"/mixes\" aria-current=\"page\">Mixes</a><a href=\"/timelines\">Timelines</a></nav>",
+      "css": ".ds-pages{display:flex;gap:24px;font-family:Inter,system-ui,sans-serif}.ds-pages a{font-size:14px;font-weight:500;color:var(--muted,#b4b4b4);text-decoration:none}.ds-pages a[aria-current=page]{color:var(--text,#fff)}.ds-pages a:hover{text-decoration:underline}.ds-pages a:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}@media(max-width:650px){.ds-pages{gap:18px}}"
+    },
+    {
+      "name": "Full mix player",
+      "kind": "card",
+      "refersTo": "timeline-panel",
+      "description": "Native full-set playback and download on the shared listening surface; static sample has no audio source.",
+      "html": "<section class=\"ds-mix-player\" aria-label=\"Full mix playback\"><div class=\"ds-mix-heading\"><h2>Full mix</h2><a href=\"#\" download>Download MP3</a></div><audio controls preload=\"metadata\" aria-label=\"Full mix playback\"></audio><p>Play the complete set, or jump to a track below.</p></section>",
+      "css": ".ds-mix-player{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--text,#fff);background:var(--surface,#111);border-radius:12px;padding:20px}.ds-mix-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.ds-mix-heading h2{font-size:16px;font-weight:600;margin:0}.ds-mix-heading a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 12px;border:1px solid var(--control,#444);border-radius:6px;font-size:13px;text-decoration:none;color:var(--text,#fff)}.ds-mix-heading a:hover{background:var(--raised,#242424)}.ds-mix-heading a:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-mix-player audio{display:block;width:100%;height:52px;margin-top:22px;color-scheme:dark}.ds-mix-player p{font-size:13px;line-height:1.6;color:var(--muted,#b4b4b4);margin:12px 0 0}@media(max-width:650px){.ds-mix-player{padding:18px 14px}.ds-mix-heading{gap:10px}.ds-mix-heading h2{font-size:15px}.ds-mix-heading a{font-size:12px;padding:8px 10px}}"
+    },
+    {
+      "name": "Tracklist and transition seek",
+      "kind": "custom",
+      "description": "Timestamped wrapping track rows and a compact transition action; sample values match the reviewed mix. Seeking is wired by the application.",
+      "html": "<section class=\"ds-listening\"><h2>Tracklist</h2><ol><li><button aria-label=\"Seek to I Move (Lyrics).mp3 at 0:00\"><time>0:00</time><span>I Move (Lyrics).mp3</span></button></li><li><button aria-label=\"Seek to F Say What.mp3 at 1:36\"><time>1:36</time><span>F Say What.mp3</span></button></li></ol><h2 class=\"ds-join-title\">Transitions</h2><button class=\"ds-join\">16-bar controlled blend<small>1:36–2:08 · Jump to the handoff</small></button></section>",
+      "css": ".ds-listening{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--text,#fff)}.ds-listening h2{font-size:16px;font-weight:600;margin:0}.ds-listening ol{list-style:none;margin:18px 0 0;padding:0}.ds-listening li{border-bottom:1px solid #252525}.ds-listening button{font-family:Inter,system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;background:transparent;color:var(--text,#fff)}.ds-listening li button{display:flex;align-items:baseline;width:100%;gap:16px;text-align:left;border:0;border-radius:0;min-height:60px;padding:12px 0;line-height:1.6}.ds-listening time{color:var(--muted,#b4b4b4);font-size:13px;min-width:40px}.ds-listening li span{overflow-wrap:anywhere;font-size:14px}.ds-listening .ds-join-title{margin-top:30px}.ds-join{display:block;text-align:left;line-height:1.5;margin-top:16px}.ds-join small{display:block;color:var(--muted,#b4b4b4);font-size:12px;margin-top:3px}.ds-listening button:hover{background:var(--raised,#242424)}.ds-listening button:active{background:#333}.ds-listening button:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}.ds-listening button:disabled{opacity:.5;cursor:default}@media(max-width:650px){.ds-listening li button{gap:12px}}"
+    },
+    {
+      "name": "Matched transition preview",
+      "kind": "custom",
+      "description": "One of the two latest associated matched previews, with native controls and handoff/download actions; static sample has no audio or seek handler.",
+      "html": "<article class=\"ds-preview\"><h3>8-bar EQ handoff</h3><p>2:08 · Handoff 1:04 · I Move (Lyrics) → F Say What</p><audio controls preload=\"metadata\" aria-label=\"8-bar EQ handoff preview playback\"></audio><div class=\"ds-preview-actions\"><button title=\"Starts four seconds before the handoff\">Play handoff 1:04</button><a href=\"#\" download>Download preview</a></div></article>",
+      "css": ".ds-preview{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--text,#fff);padding:0 0 22px;margin-bottom:22px;border-bottom:1px solid #252525}.ds-preview h3{font-size:14px;font-weight:600;line-height:1.5;margin:0}.ds-preview p{font-size:12px;line-height:1.6;color:var(--muted,#b4b4b4);margin:6px 0 0;overflow-wrap:anywhere}.ds-preview audio{display:block;width:100%;height:42px;margin-top:12px;color-scheme:dark}.ds-preview-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}.ds-preview-actions button{font-family:Inter,system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;background:transparent;color:var(--text,#fff);font-size:12px}.ds-preview-actions a{font-size:12px;text-underline-offset:4px;color:var(--muted,#b4b4b4)}.ds-preview-actions button:hover{background:var(--raised,#242424)}.ds-preview-actions button:active{background:#333}.ds-preview-actions button:focus-visible,.ds-preview-actions a:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}@media(max-width:650px){.ds-preview-actions{justify-content:flex-start;gap:18px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Low-Light Listening Desk",
+    "overview": "AI-DJ is a compact working instrument: true black, flat neutral surfaces, precise timing columns and familiar controls. Its visual language supports sustained listening and direct correction. Musical evidence supplies the visual interest; decoration does not compete with it.\n\nInter carries the entire interface, with tabular numerals keeping times steady. The selected surface direction is Operate: restrained controls and explicit states, with no glow or decorative motion. Mix listening and the timeline editor share this established visual vocabulary; these rules describe the implemented surfaces rather than a complete future mix application.",
+    "keyCharacteristics": [
+      "True-black ground with flat tonal grouping.",
+      "Compact Inter typography and tabular times.",
+      "Lime energy, pale vocal activity and amber phrase markers.",
+      "Familiar controls with visible keyboard focus.",
+      "Explicit uncertainty, provenance and correction state."
+    ],
+    "rules": [
+      {
+        "name": "The Evidence Color Rule",
+        "body": "Preserve each musical signal's meaning across the chart and legend; color is an aid to the accompanying text, geometry and position.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat Surface Rule",
+        "body": "Use tonal grouping and spacing to establish hierarchy; preserve the shadow-free working surface.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do retain the flat black ground, compact Inter type and tabular timing columns.",
+      "Do preserve lime keyboard focus and clear disabled, unsaved, saving and error states.",
+      "Do generate musical geometry from actual analysis and label unavailable evidence explicitly.",
+      "Do let filenames, legends and grouped toolbar fields wrap at narrow widths.",
+      "Do keep original predictions and correction revisions visibly distinguishable."
+    ],
+    "donts": [
+      "Don't add decorative glow, shadows or motion to the listening workspace.",
+      "Don't invent waveform details, vocal certainty, calibrated confidence or listening approval.",
+      "Don't use amber as proof that a marker was manually edited.",
+      "Don't replace familiar native playback controls with unexplained decorative controls.",
+      "Don't introduce unlicensed imagery or a new type family without updating the established visual system."
+    ]
+  }
+}

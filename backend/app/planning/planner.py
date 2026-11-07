@@ -135,7 +135,7 @@ def build_plan(entries, mix_id, method='ml', requested_seconds=180.0, learned=No
                    'long_transitions': sum(t.bars == 32 for t in transitions),
                    'short_transitions': sum(t.bars == 8 for t in transitions),
                    'boundary_transitions': sum(t.style == 'boundary_fade' for t in transitions)}
-    return plan, {'method': method, 'ordering_objective': objective, 'tracks': tracks, 'joins': explanations,
+    return plan, {'method': method, 'model': learned['model'], 'ordering_objective': objective, 'tracks': tracks, 'joins': explanations,
                   'tempo_runs': runs, 'diagnostics': diagnostics,
                   'limitations': ['Source cue support is approximate; every rendered pair still needs waveform phase checks.',
                                  'Unsupervised groups do not predict human acceptance or semantic vocal endings.']}

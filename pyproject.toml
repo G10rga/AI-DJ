@@ -12,6 +12,10 @@ dependencies = []
 [project.optional-dependencies]
 audio = ["librosa==1.0.0", "numpy==2.5.4", "scipy==1.18.1"]
 ml = ["scikit-learn==1.9.1"]
+web = ["fastapi==0.162.2", "uvicorn==0.54.0"]
 
 [tool.setuptools.packages.find]
 include = ["backend*"]
+
+[tool.setuptools.package-data]
+"backend.app" = ["web_assets/*"]

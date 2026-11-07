@@ -1,0 +1,9 @@
+# Separate Python 3.12 CPU runtime, on D:. Install torch/torchaudio from the CPU index.
+torch==2.6.0
+torchaudio==2.6.0
+beat-this==1.1.0
+transformers==4.38.2
+numpy==1.26.4
+scipy==1.13.1
+soundfile==0.13.1
+requests==2.32.5

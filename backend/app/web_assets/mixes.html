@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Your mixes · AI-DJ</title>
+  <link rel="stylesheet" href="/assets/editor.css">
+  <link rel="stylesheet" href="/assets/mixes.css">
+  <script src="/assets/mixes.js" defer></script>
+</head>
+<body>
+  <header class="shell"><a href="/" class="brand" aria-label="AI-DJ home"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 17V11M9 23V5M15 27V1M21 20V8M27 17V11"/></svg>AI-DJ</a><nav class="page-nav" aria-label="Main navigation"><a href="/mixes" aria-current="page">Mixes</a><a href="/timelines">Timelines</a></nav><span class="local">Local library</span></header>
+  <main id="mix-page">
+    <aside aria-label="Mix library">
+      <div class="library-heading"><h2>Your mixes</h2><button id="refresh-mixes" type="button">Refresh</button></div>
+      <nav id="mix-list" aria-label="Completed mixes"><p class="hint">Loading mixes…</p></nav>
+      <p class="hint">Completed mixes stay here so you can play and download them.</p>
+    </aside>
+    <section class="workspace">
+      <div class="title-row"><div><h1 id="mix-title">Your mixed sets</h1><p id="mix-summary">Choose a completed mix to listen.</p></div><span class="status" id="mix-status"></span></div>
+      <div id="message" role="status" aria-live="polite"></div>
+      <div id="mix-empty" class="empty" hidden><h2>No completed mixes yet</h2><p>Your finished mixes will appear here. If a render is running, refresh when it finishes.</p></div>
+      <section class="timeline-panel mix-player" id="mix-player" aria-label="Full mix playback" hidden>
+        <div class="panel-heading"><h2>Full mix</h2><a id="mix-download" class="button-link" download>Download MP3</a></div>
+        <audio id="mixed-audio" controls preload="metadata" aria-label="Full mix playback"></audio>
+        <p id="mix-playing-note" class="playback-note">Play the complete set, or jump to a track below.</p>
+      </section>
+      <div class="listening-details">
+        <section id="mix-track-section" hidden>
+          <h2>Tracklist</h2><ol id="mix-tracklist" class="listening-tracklist"></ol>
+          <h2 class="join-heading">Transitions</h2><div id="mix-transitions"></div>
+        </section>
+        <section class="preview-section" aria-labelledby="preview-heading">
+          <h2 id="preview-heading">Transition previews</h2>
+          <p class="preview-help">Volumes are matched for comparison. Jump to the handoff to hear each choice.</p>
+          <div id="preview-list"><p class="muted">Loading previews…</p></div>
+          <p id="preview-message" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

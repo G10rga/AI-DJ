@@ -2,9 +2,18 @@
 
 Personal web app: upload ~30+ house tracks → one continuous DJ-like set with adaptive transitions. Develop and run locally on the owner’s PC first; Ubuntu hosting comes later.
 
-**Status:** Local foundation and two-track audio prototype implemented; 10 tests passing. Full-set planning, EQ recipes, background jobs, and the web app are next. Real-music listening evaluation is still pending.
+**Status:** Musical timelines, the local correction editor, contextual cue/recipe candidates, matched auditions and opt-in contextual set planning are implemented. The durable worker, reference annotation, trained contextual ranking and complete browser mix/listening workflow remain unfinished. See the usage links below.
+
+Open **http://127.0.0.1:8000/mixes** for the completed mix, playback/download,
+timestamped tracklist and recent transition previews. Source timeline correction
+is under **Timelines** at `/timelines`.
 
 ## Docs
+
+Musical timelines and the working local editor: [setup and usage](docs/timeline-usage.md).
+
+Contextual cue/recipe candidates, matched auditions and opt-in set planning:
+[commands and validation](docs/contextual-transitions.md).
 
 | File | Purpose |
 |------|---------|
@@ -252,3 +261,31 @@ listening; a long blend does not automatically make two musical sections fit.
 
 Model sources: [UVR model repository](https://github.com/TRvlvr/model_repo) and
 [UVR model metadata](https://github.com/TRvlvr/application_data).
+## Resumed context-aware workflow
+
+The recovered Plan mode plan is saved in
+[docs/superpowers/plans/2026-11-07-context-aware-workflow.md](docs/superpowers/plans/2026-11-07-context-aware-workflow.md).
+
+The shared set renderer now accepts audio files or a folder instead of a fixed
+ten-song catalog. Run from the repository root with the optional separator set up:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/local.ps1 -m scripts.render_set "D:\G1-Drive\Dj\AfroHouse" --excerpt-seconds 144
+```
+
+Every selected entry is retained, including duplicate files. Invalid audio blocks
+planning and produces an error report. The application services live in
+`backend/app/library.py` and `backend/app/rendering.py`; the CLI calls them.
+Separation environments/models/caches resolve under the configured data root.
+
+SQLite schema version 2 adds render-attempt history without changing existing
+plans or feedback. Each attempt snapshots the requested plan, source hashes and
+planning model metadata. Reports also include the applied plan, source cue
+corrections, PCM delays, trims and actual recipes. Only validated current renders
+become playable; failed rerenders and stale completions retain the prior playable
+revision. Audio, JSON reports and timestamped tracklists remain on the data drive.
+
+This is the rendering/persistence foundation. The durable queue, musical timeline
+models, contextual candidate ranking and browser listening workflow remain ahead.
+Existing pair experiment scripts and feedback records remain available. Technical
+checks do not establish musical listening acceptance.

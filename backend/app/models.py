@@ -57,12 +57,16 @@ class MixPlan:
         for excerpt in self.excerpts:
             excerpt.validate()
         for transition in self.transitions:
-            if transition.style not in {"eq_cut", "smooth", "boundary_fade"}:
+            if transition.style not in {"eq_cut", "smooth", "boundary_fade", "controlled", "phrase_cut"}:
                 raise ValueError("Unknown transition style")
             if not math.isfinite(transition.overlap_seconds) or transition.overlap_seconds <= 0:
                 raise ValueError("Overlap must be finite and positive")
             if transition.bars < 0:
                 raise ValueError("Bar count must be nonnegative")
+            if transition.style == 'controlled' and transition.bars != 16:
+                raise ValueError('Controlled blends require sixteen bars')
+            if transition.style == 'phrase_cut' and (transition.bars != 0 or transition.overlap_seconds > .05):
+                raise ValueError('Phrase cuts require a click-free exchange of at most 50ms')
         for index, excerpt in enumerate(self.excerpts):
             incoming = self.transitions[index - 1].overlap_seconds if index else 0
             outgoing = self.transitions[index].overlap_seconds if index < len(self.transitions) else 0

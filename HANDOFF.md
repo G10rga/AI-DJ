@@ -1,5 +1,192 @@
 # Handoff — AI DJ Set Maker
 
+## Mixes now visible and playable in browser — 2026-11-07
+
+Owner asked why the mix was absent from the web interface. Added the missing
+listening surface; `http://127.0.0.1:8000/` and `/mixes` now open completed mixes.
+Source correction remains at `/timelines`, linked in the shared navigation.
+
+- `playback.py` lists published/playable SQLite renders, timestamped tracklists,
+  actual transition windows and recent matched audition events. It serves only
+  registered audio inside render storage. Full-mix audio URLs are pinned to
+  their playable revision so a new render cannot splice into an existing stream.
+  Failed rerenders preserve the previous playable version; missing audio has an
+  explicit unavailable state. HTTP ranges and downloads are supported.
+- `mixes.html/css/js` inherits the existing design. Full mix player/download is
+  first, followed by seekable tracks/transitions and two recent previews filtered
+  to adjacent source pairs in the selected set. Play handoff starts four seconds
+  before the shown seam. Starting a player pauses all others. No autoplay.
+- Actual Move/Say What set and matched previews are visible and stream from the
+  browser. The local server was restarted on port 8000 (process 10452 in this
+  session). Root now means listening, not source timeline review.
+- **71 automated tests pass**, including four new playback API regressions for
+  ranges, downloads, tracklist, revision pinning, failed rerenders, absent files
+  and registered audition path restrictions. Thirteen real browser checks passed
+  for muted playback/seeking/download, player exclusivity, responsive fit at
+  1440/768/390, preserved timeline navigation and failed-refresh recovery.
+- Visual review disposition ship for this inherited extension; no material
+  findings. The static hierarchy false positive on mixes.html is narrowly waived
+  with browser-size evidence. Native media control whitespace and no-data-hue
+  inspector warnings are intentional: this page contains players, not a chart.
+  Surface contract: `docs/mixes-surface.md`. No owner feedback or audio changed.
+
+Mix generation/import/background progress and explicit browser preference voting
+remain later work. This extension supplies playback for existing completed
+renders and previews; it does not claim the whole planned application is done.
+No commits or pushes.
+
+## Contextual candidates, auditions and set integration — 2026-11-07
+
+Implemented step 3's conservative baseline. See `docs/contextual-transitions.md`
+and `docs/superpowers/plans/2026-11-07-contextual-candidates.md`.
+
+- `planning/contextual.py` proposes up to twelve cue/recipe alternatives from
+  effective timeline snapshots. It uses local energy/trend, bass, chroma, frozen
+  embeddings, vocal activity, downbeat/bar and section evidence. The method is
+  explicitly a deterministic context baseline, not trained personal taste.
+- Recipes: 32-bar groove, controlled 16-bar blend, 8-bar EQ exchange, 40ms
+  phrase-aligned cut. Cuts need corrected phrase or phrase-plus-section evidence
+  plus known vocal gaps; an energy spike alone cannot trigger one. Rising
+  sections, including the earlier mids fade of a long blend, are protected.
+- `auditions.py` independently validates prepared waveform phase/drift, bounds,
+  stretch and levels. Small cue corrections are recorded and capped. Rendering
+  checks the separated instrumentals and encoded audio. Fixed non-overlapping
+  vocal windows leave the groove running. No recipe fallback during auditions.
+- A/B files have a shared duration and centered handoff, measured integrated-LUFS
+  matching and true-peak headroom. Matched files are new artifacts; original
+  previews remain stored. Legacy preference feature/report fields are retained
+  in newly generated reports; no new listening labels were entered.
+- SQLite version 4 adds immutable transition candidate snapshots and append-only
+  validation/rejection/audition events. Timeline IDs, correction revisions,
+  model/config identities and context vectors remain attributable.
+- `scripts.suggest_transitions` handles ordered-pair comparisons. `scripts.plan_mix`
+  and `scripts.render_set` accept `--contextual`: keep existing ML ordering, choose
+  validated contextual joins, check neighboring excerpt geometry and retain every
+  input. Missing/invalid context retains an explicitly reported conservative
+  join. Selected contextual joins fail clearly if final validation fails.
+- Real Move → Say What: twelve proposals from twenty screened choices, eleven
+  prepared-audio validations. Two 128s matched auditions with handoff at 64s:
+  controlled 16 bars at source anchors 128.18/74.14s, and 8-bar EQ at
+  144.18/74.14s. Verified pair report:
+  `D:\AI-DJ-data\plans\context-pair-47cda1b563fc442da4429aff3902d1f9.json`.
+  Its matched outputs measured -20.00/-20.01 LUFS and -4.10/-3.76 dBFS true peak.
+  Final repeat with legacy feedback report compatibility:
+  `D:\AI-DJ-data\plans\context-pair-6a3f8909c04548bc8fb886b5e7b28046.json`.
+  A (16 bars): `D:\AI-DJ-data\renders\matched-audition-1f099e4c0bc64056b783cfcd23a8ed11.mp3`.
+  B (8 bars): `D:\AI-DJ-data\renders\matched-audition-3db89f39ccd6413d86d74cd89f9bda67.mp3`.
+- Real contextual full-set plan `mix-d6a68a4fd24a4d008aa214372862a06f` rendered
+  successfully with BOTH inputs, controlled 16-bar join, duration 197.998s and
+  encoded peak 0.8012. Playable output:
+  `D:\AI-DJ-data\renders\set-476f9c744fbc42c6aba1f716c1cffe81.mp3`.
+  Adjacent JSON/TXT contain applied cues and tracklist. Float separator stems
+  are now converted to PCM16 only for pulse checking, fixing a real full-set
+  integration gap; float stems continue into the mixer.
+- Final verification: **67 tests pass**, including eleven new contextual tests,
+  actual generated-audio renders for every recipe, LUFS matching, adjacent-join
+  geometry, float-stem full-set integration, immutable identities and rejected
+  waveform failures. Actual model separation/instrument timing also passed for
+  the real auditions and full set. Production correction revisions remain zero
+  for both real tracks. Original explicit owner comparison count remains ONE.
+
+Listening approval remains pending. Next saved-plan milestone is reference mix
+import/alignment/annotation, followed by contextual ranking/style learning and
+the complete browser listening workflow. Durable worker integration remains
+unfinished. The timeline review UI remains available; pair audition generation
+is currently exposed through CLI/shared services. No commits or pushes.
+
+## Musical timelines and local correction editor — 2026-11-07
+
+Continued step 2 of the recovered Plan mode workflow. New implementation plan:
+`docs/superpowers/plans/2026-11-07-musical-timelines.md`. Usage and limits:
+`docs/timeline-usage.md`. New local UI: `http://127.0.0.1:8000`, launched with
+`scripts/local.ps1 -m scripts.serve` (server started in this session).
+
+- Isolated Python 3.12 CPU inference environment: `D:\AI-DJ-data\timeline\venv`.
+  Beat This 1.1.0/final0, frozen MERT-v1-95M, torch/torchaudio 2.6 CPU,
+  Transformers 4.38.2. Core requirements and exact runtime lock are checked in;
+  setup downloads artifacts to D:. MERT revision is pinned and all model files
+  have recorded hashes. Beat This's official host had an expired certificate;
+  setup falls back to a pinned reupload with a fixed verified SHA-256.
+- Worker uses 30s cores with 4s beat context and 5s frozen MERT windows. DSP
+  bins retain RMS/peak, bass, transient-density proxy and chroma. Optional vocals
+  reuse the existing DirectML separator on bounded source chunks; absent vocals
+  stay unknown. Candidate phrases/sections are explicitly tentative, confidence
+  uncalibrated. No named verse/chorus/drop claims.
+- Important loader fix: default MERT loading silently skipped positional
+  weight-norm tensors under modern PyTorch. That run was stopped before storage.
+  The worker now maps old g/v names to parametrization names and loads ALL tensors
+  strictly. Two full strict-loader runs on I Move succeeded. HF module/model
+  caches are directed onto D: before Transformers imports.
+- SQLite schema 3 adds immutable predictions, track associations and append-only
+  optimistic-lock correction revisions. Human overrides preserve original
+  estimates; correction history belongs to the particular analysis ID. Cache
+  identity includes source, models, dependencies, adapter and configuration.
+  The library shows the newest analysis per track; older versions remain stored.
+- Real track: `D:\G1-Drive\Dj\AfroHouse\I Move (Lyrics).mp3`, 177.70s. Output:
+  354 beats, 89 downbeats, 88 candidate four-beat bars, 36 embeddings, 178 DSP
+  bins, 356 vocal bins, three section-change candidates. Latest timeline ID:
+  `6d10ed7707adc9a697aa7e1f875d1806bd0ffa072df9e8e92f54742aa1aaf44f`.
+  Track ID: `timeline-e352917db2528148e6539c0b`. Production corrections remain
+  revision 0. These are inference outputs, not human-approved annotations.
+- Loopback FastAPI editor supports source playback/range requests, seeking,
+  whole-song/30s/60s zoom, coarse waveform/energy/vocal/downbeat/phrase overlays,
+  add/remove marker, revision save, restore estimates and discard edits.
+  Save locks conflicting controls; stale saves require reload. Browser requests
+  use IDs and cannot choose arbitrary source paths.
+- Validation: **56 tests pass**, including 11 new timeline/API/feature tests.
+  Browser checks passed for muted playback, seek/zoom, marker saves and delayed
+  save locking, error/filter/restore/discard states, loaded font and no horizontal
+  overflow at 1440/768/390. Browser mutations used the isolated database in
+  `D:\AI-DJ-data\tmp\test-timeline-browser`, not production. Its temporary server
+  on 8001 was stopped. Screenshots/check artifacts are gitignored under
+  `.impeccable/review`. Fresh design review scored the identified fixes resolved;
+  design tokens documented in DESIGN.md and `.impeccable/design.json`.
+
+Next saved-plan work: contextual candidate generation consuming effective
+timelines; all four recipes and comparable auditions. Manual annotation/listening
+evaluation of the new estimates is pending. Timelines do not yet change existing
+mix choices. Durable worker/import progress, reference annotation, contextual
+ranking and the complete listening workflow remain future work. No commits or
+pushes, no owner feedback fabricated. Earlier sections below are history.
+
+## Resumed Plan mode workflow — 2026-11-07
+
+Canonical repository: `C:\Users\user\Documents\GitHub\AI-DJ`. The Desktop path
+in older sessions is absent; `Projects\ai-dj-set` is an older design-only copy.
+Recovered the exact previous Plan mode proposal into
+`docs/superpowers/plans/2026-11-07-context-aware-workflow.md` and wrote the first
+implementation slice in `2026-11-07-rendering-foundation.md` alongside it.
+
+Implemented the shared rendering/persistence foundation:
+
+- `backend/app/library.py` owns discovery, analysis and atomic initial-plan
+  registration. `scripts.plan_mix` and `scripts.render_set` call these services.
+- `backend/app/rendering.py` extracts the disk-backed stem renderer from the
+  fixed ten-track experiment. It accepts arbitrary input entries and a saved
+  plan; separator paths resolve below the configured data root. The set CLI now
+  requires explicit files or a directory (`--excerpt-seconds` defaults to 144).
+- SQLite version 2 adds append-only render-attempt history. Requested plans and
+  planning-model provenance are snapshotted. Reports retain applied cues, PCM
+  delays, trims and actual joins; saved requested plans stay immutable.
+- Planned boundary joins remain boundary joins. Beatmatched joins are checked
+  across overlap windows before and after separation. Geometry, source hashes,
+  decoded duration/stereo/finite samples/peak/silence are validated. Failed or
+  stale completions never replace the last playable revision.
+- Final verification: **45 tests pass**, including ten new persistence/rendering
+  regressions and real FFmpeg synthetic stereo renders for 1/2/3 entries. Model
+  inference is substituted in these new tests; no new real-music listening
+  approval or real separator integration run is claimed. No commits or pushes.
+
+Next: continue the saved plan. Durable worker/restart integration, musical
+timelines and correction UI, contextual candidates, reference annotation and
+contextual ranking/listening UI remain unfinished. Existing pair experiments
+and the original feedback store remain compatible; they have not yet all been
+converted into this shared set pipeline. No owner feedback was fabricated.
+The owner requests no routine approval questions; the app may still enforce
+command permissions. The sandbox process launcher failed during this session.
+
+Older history follows; where it conflicts, the dated update above is current.
+
 **Project path:** `C:\Users\user\Documents\GitHub\AI-DJ`
 **Date of handoff:** 2026-11-06  
 **Prior context:** Design approved. Foundation, validated two-track/stem renderers, and milestone 3 unsupervised library planning are implemented. Owner approved the long Move → Say What reference blend. Twenty-nine tests pass. Actual ML-selected pair preview validated; musical listening is pending. Full-set audio rendering and the web app remain unfinished.

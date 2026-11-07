@@ -15,6 +15,7 @@ from backend.app.planning.learning import fit_library, VERSION
 from backend.app.planning.planner import build_plan
 from backend.app.planning.rhythm import analyze_rhythm
 from backend.app.storage import Storage
+from backend.app.library import discover, collect_entries, persist_plan
 
 EXTENSIONS = {'.mp3', '.wav', '.flac', '.m4a', '.aiff', '.aif', '.ogg'}
 
@@ -31,7 +32,7 @@ def write_summary(path, artifact):
     for i, excerpt in enumerate(plan.excerpts):
         name = Path(tracks[excerpt.track_id]['path']).name.replace('|', '\\|')
         join = plan.transitions[i] if i < len(plan.transitions) else None
-        label = f'{join.bars} bars / {join.style}' if join and join.bars else 'Review required' if join else 'End'
+        label = 'Phrase-aligned cut' if join and join.style == 'phrase_cut' else f'{join.bars} bars / {join.style}' if join and join.bars else 'Review required' if join else 'End'
         lines.append(f'| {i+1} | {name} | {excerpt.source_in:.2f}-{excerpt.source_out:.2f} | '
                      f'{excerpt.source_bpm:.2f} / {excerpt.target_bpm:.2f} | {label} |')
     lines += ['', '## Joins requiring review', '']
@@ -54,67 +55,21 @@ def write_summary(path, artifact):
     path.write_text('\n'.join(lines), encoding='utf-8')
 
 
-def discover(inputs):
-    paths = []
-    for value in inputs:
-        path = Path(value).resolve(strict=True)
-        if path.is_dir():
-            paths.extend(sorted((p for p in path.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS),
-                                key=lambda p: p.name.casefold()))
-        else:
-            if path.suffix.lower() not in EXTENSIONS:
-                raise ValueError(f'Unsupported input: {path.name}')
-            paths.append(path)
-    if not paths:
-        raise ValueError('No audio tracks found')
-    return paths
-
-
-def collect_entries(paths, settings, storage):
-    entries, errors = [], []
-    for index, path in enumerate(paths):
-        print(f'Analyzing {index+1}/{len(paths)}: {path.name}', flush=True)
-        try:
-            analysis = analyze(path, settings, storage)
-            analysis['rhythm'] = analyze_rhythm(path, analysis, settings, storage)
-            identity = hashlib.sha256(f'{path}:{analysis["content_hash"]}'.encode()).hexdigest()[:16]
-            entries.append({'entry_id': f'{index+1:03d}-{identity}', 'path': str(path), 'analysis': analysis})
-            print(f'  Local tempo: {analysis["rhythm"]["bpm"]}; usable pulse windows: {len(analysis["rhythm"]["windows"])}', flush=True)
-        except (OSError, ValueError, RuntimeError) as exc:
-            errors.append({'path': str(path), 'error': str(exc)})
-    if errors:
-        report = storage.path('plans', 'analysis-errors-'+uuid4().hex+'.json')
-        report.write_text(json.dumps({'errors': errors, 'plan_created': False}, indent=2), encoding='utf-8')
-        raise ValueError(f'Input errors prevented plan creation; no reduced playlist was planned. Details: {report}')
-    return entries
-
-
-def persist_plan(entries, plan, settings):
-    database = Database(settings.data_root/'app.sqlite3')
-    database.initialize()
-    with database.connection() as connection:
-        connection.execute('INSERT INTO mixes(id) VALUES (?)', (plan.mix_id,))
-        for position, entry in enumerate(entries):
-            analysis = entry['analysis']
-            connection.execute('INSERT OR IGNORE INTO tracks(id,content_hash,original_name,storage_name,metadata_json) VALUES (?,?,?,?,?)',
-                               (entry['entry_id'], analysis['content_hash'], Path(entry['path']).name,
-                                'external:'+entry['entry_id'], json.dumps({'external_path': entry['path']})))
-            connection.execute('INSERT INTO mix_tracks(mix_id,track_id,position) VALUES (?,?,?)', (plan.mix_id, entry['entry_id'], position))
-            confidence = min(1, max(0, analysis['rhythm']['confidence']))
-            connection.execute('INSERT OR REPLACE INTO analyses VALUES (?,?,?,?,?)',
-                               (analysis['content_hash'], analysis['version']+'+'+analysis['rhythm']['version'],
-                                hashlib.sha256(analysis['config'].encode()).hexdigest(),
-                                json.dumps(analysis, allow_nan=False), confidence))
-    database.save_plan(plan)
-    if database.load_plan(plan.mix_id, plan.revision) != plan:
-        raise RuntimeError('Plan persistence round-trip failed')
-
-
 def preview_join(entries, plan, details, settings, storage, join):
     index = join-1
     if not 0 <= index < len(plan.transitions):
         raise ValueError('Preview join is outside the planned tracklist')
     transition = plan.transitions[index]
+    contextual = details.get('contextual', {}).get('joins', [])
+    selected = contextual[index].get('selected') if index < len(contextual) else None
+    if selected:
+        from backend.app.planning.candidate_store import CandidateStore
+        from backend.app.auditions import render_candidate
+        candidate = CandidateStore(storage.root).load(selected['candidate_id'])
+        sources = {e['entry_id']: e['path'] for e in entries}
+        report = render_candidate(candidate, selected['validation'], sources, settings, storage)
+        return {'output': report['output'], 'report': str(Path(report['output']).with_suffix('.json')),
+                'candidate_id': candidate['id']}
     if transition.style == 'boundary_fade':
         raise ValueError('This join is marked for boundary review; choose a beatmatched join to audition')
     lookup = {entry['entry_id']: entry for entry in entries}
@@ -150,6 +105,7 @@ def main():
     parser.add_argument('inputs', nargs='+', help='Audio paths or a folder; duplicate entries are retained')
     parser.add_argument('--method', choices=('ml', 'baseline'), default='ml')
     parser.add_argument('--compare', action='store_true')
+    parser.add_argument('--contextual', action='store_true', help='Use musical timelines to choose validated cue/recipe candidates')
     parser.add_argument('--excerpt-seconds', type=float, default=180)
     parser.add_argument('--preview-join', type=int)
     parser.add_argument('--preview-best', action='store_true', help='Try up to three compatible planned joins')
@@ -161,6 +117,9 @@ def main():
     print('Fitting library similarity and pair groups...', flush=True)
     learned = fit_library(entries)
     plan, details = build_plan(entries, uuid4().hex, args.method, args.excerpt_seconds, learned)
+    if args.contextual:
+        from backend.app.planning.contextual_set import contextualize_plan
+        plan, details = contextualize_plan(entries, plan, details, settings, storage)
     data_hash = hashlib.sha256((VERSION+':'+':'.join(learned['model']['training_content_hashes'])).encode()).hexdigest()
     model_path = storage.path('models', 'library-'+data_hash+'.json')
     model_path.write_text(json.dumps(learned['model'], indent=2, allow_nan=False), encoding='utf-8')

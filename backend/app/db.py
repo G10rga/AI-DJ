@@ -2,6 +2,9 @@
 from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
+import json
+import hashlib
+from uuid import uuid4
 from .models import MixPlan
 
 SCHEMA = """
@@ -39,6 +42,36 @@ CREATE TABLE IF NOT EXISTS renders (
  metadata_json TEXT NOT NULL,
  PRIMARY KEY(mix_id, revision), FOREIGN KEY(mix_id, revision) REFERENCES plans(mix_id, revision)
 );
+CREATE TABLE IF NOT EXISTS render_attempts (
+ id TEXT PRIMARY KEY, mix_id TEXT NOT NULL, revision INTEGER NOT NULL,
+ status TEXT NOT NULL CHECK(status IN ('running','succeeded','failed')),
+ snapshot_json TEXT NOT NULL, report_json TEXT, error TEXT,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(mix_id, revision) REFERENCES plans(mix_id, revision)
+);
+CREATE TABLE IF NOT EXISTS timelines (
+ id TEXT PRIMARY KEY, content_hash TEXT NOT NULL, config_json TEXT NOT NULL,
+ prediction_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS track_timelines (
+ track_id TEXT NOT NULL REFERENCES tracks(id), timeline_id TEXT NOT NULL REFERENCES timelines(id),
+ PRIMARY KEY(track_id,timeline_id)
+);
+CREATE TABLE IF NOT EXISTS timeline_corrections (
+ timeline_id TEXT NOT NULL REFERENCES timelines(id), revision INTEGER NOT NULL,
+ changes_json TEXT NOT NULL, note TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(timeline_id,revision)
+);
+CREATE TABLE IF NOT EXISTS transition_candidates (
+ id TEXT PRIMARY KEY, pair_key TEXT NOT NULL, snapshot_json TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS candidate_events (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, candidate_id TEXT NOT NULL REFERENCES transition_candidates(id),
+ kind TEXT NOT NULL CHECK(kind IN ('validated','rejected','audition')),
+ payload_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -62,10 +95,73 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in {0, 1}:
+            if version not in {0, 1, 2, 3, 4}:
                 raise RuntimeError("Unsupported database version")
             connection.executescript(SCHEMA)
-            connection.execute("PRAGMA user_version = 1")
+            connection.execute("PRAGMA user_version = 4")
+
+    def register_plan(self, entries, plan):
+        """Register members and their initial plan in one transaction."""
+        payload = plan.to_json()
+        ids = [entry['entry_id'] for entry in entries]
+        if len(ids) != len(set(ids)) or set(ids) != {e.track_id for e in plan.excerpts}:
+            raise ValueError('Plan must include every input entry exactly once')
+        if plan.revision != 1:
+            raise ValueError('Initial plan must be revision one')
+        with self.connection() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            connection.execute('INSERT INTO mixes(id,requested_revision) VALUES (?,1)', (plan.mix_id,))
+            for position, entry in enumerate(entries):
+                identity = entry['entry_id']
+                content_hash = entry['analysis']['content_hash']
+                metadata = json.dumps({'external_path': str(Path(entry['path']).resolve())})
+                old = connection.execute('SELECT content_hash,metadata_json FROM tracks WHERE id=?', (identity,)).fetchone()
+                if old and (old['content_hash'] != content_hash or old['metadata_json'] != metadata):
+                    raise ValueError('Track entry identity conflicts with an existing source')
+                connection.execute('INSERT OR IGNORE INTO tracks(id,content_hash,original_name,storage_name,metadata_json) VALUES (?,?,?,?,?)',
+                                   (identity, content_hash, Path(entry['path']).name, 'external:'+identity, metadata))
+                connection.execute('INSERT INTO mix_tracks VALUES (?,?,?)', (plan.mix_id, identity, position))
+                analysis = entry['analysis']
+                rhythm = analysis.get('rhythm', {})
+                if 'version' in analysis and 'version' in rhythm and 'config' in analysis:
+                    connection.execute('INSERT OR REPLACE INTO analyses VALUES (?,?,?,?,?)',
+                                       (content_hash, analysis['version']+'+'+rhythm['version'],
+                                        hashlib.sha256(analysis['config'].encode()).hexdigest(),
+                                        json.dumps(analysis, allow_nan=False), min(1, max(0, rhythm['confidence']))))
+            connection.execute('INSERT INTO plans VALUES (?,?,?)', (plan.mix_id, 1, payload))
+
+    def begin_render(self, plan, provenance):
+        snapshot = json.dumps({'plan': json.loads(plan.to_json()), 'provenance': provenance}, allow_nan=False, sort_keys=True)
+        identity = uuid4().hex
+        with self.connection() as connection:
+            saved = connection.execute('SELECT plan_json FROM plans WHERE mix_id=? AND revision=?', (plan.mix_id, plan.revision)).fetchone()
+            if saved is None or saved[0] != plan.to_json():
+                raise ValueError('Render must use the saved immutable plan')
+            connection.execute('INSERT INTO render_attempts(id,mix_id,revision,status,snapshot_json) VALUES (?,?,?,?,?)',
+                               (identity, plan.mix_id, plan.revision, 'running', snapshot))
+        return identity
+
+    def fail_render(self, attempt_id, error):
+        with self.connection() as connection:
+            cursor = connection.execute("UPDATE render_attempts SET status='failed',error=? WHERE id=? AND status='running'", (str(error), attempt_id))
+            if cursor.rowcount != 1:
+                raise ValueError('Render attempt is missing or already finished')
+
+    def finish_render(self, attempt_id, storage_name, report):
+        """Publish only current revisions; older completions remain in history."""
+        payload = json.dumps(report, allow_nan=False, sort_keys=True)
+        with self.connection() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            attempt = connection.execute('SELECT * FROM render_attempts WHERE id=?', (attempt_id,)).fetchone()
+            if attempt is None or attempt['status'] != 'running':
+                raise ValueError('Render attempt is missing or already finished')
+            current = connection.execute('SELECT requested_revision FROM mixes WHERE id=?', (attempt['mix_id'],)).fetchone()[0]
+            published = current == attempt['revision'] and connection.execute('SELECT 1 FROM renders WHERE mix_id=? AND revision=?', (attempt['mix_id'], current)).fetchone() is None
+            if published:
+                connection.execute('INSERT INTO renders VALUES (?,?,?,?)', (attempt['mix_id'], current, storage_name, payload))
+                connection.execute('UPDATE mixes SET playable_revision=? WHERE id=?', (current, attempt['mix_id']))
+            connection.execute("UPDATE render_attempts SET status='succeeded',report_json=? WHERE id=?", (payload, attempt_id))
+        return published
 
     def save_plan(self, plan: MixPlan):
         payload = plan.to_json()

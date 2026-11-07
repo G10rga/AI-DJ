@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "backend/app/web_assets/index.html"
+        ],
+        "createdAt": "2026-11-07T18:39:45.191Z",
+        "reason": "Agent: static HTML scan cannot resolve the root-relative /assets/editor.css. Browser inspection and DESIGN.md confirm title/body 22/14 px on desktop and 20/14 px on mobile, with section headings 16/15 px."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "backend/app/web_assets/editor.css"
+        ],
+        "createdAt": "2026-11-07T18:39:45.240Z",
+        "reason": "Agent: Inter is the intentional self-hosted workhorse face from the adopted true-black-flat Operate app sheet, recorded in DESIGN.md and retained by the fresh finish review."
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "backend/app/web_assets/mixes.html"
+        ],
+        "createdAt": "2026-11-07T19:16:51.753Z",
+        "reason": "Agent: false positive from unresolved root-relative stylesheets; browser inspection confirms inherited 22/14px desktop and 20/14px mobile title/body scale from DESIGN.md."
+      }
+    ]
+  }
+}

@@ -68,10 +68,10 @@ def vocal_schedule(outgoing, incoming, transition, overlap, bpm, fade_bars=4):
 
 
 def stem_pair_graph(gains, first_seconds, second_seconds, overlap, bpm, phase, schedule, blend_profile='standard'):
-    if blend_profile not in {'standard', 'long_groove'}:
+    if blend_profile not in {'standard', 'long_groove', 'controlled'}:
         raise ValueError('Unknown instrumental blend profile')
     graph, recipe = eq_swap_graph(gains, first_seconds, second_seconds, overlap, bpm, phase,
-                                  long_blend=blend_profile == 'long_groove')
+                                  long_blend=blend_profile == 'long_groove', controlled_blend=blend_profile == 'controlled')
     graph = graph.replace('[out]', '[bed]')
     transition = first_seconds-overlap
     expected = first_seconds+second_seconds-overlap

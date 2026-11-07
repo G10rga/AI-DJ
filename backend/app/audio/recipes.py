@@ -1,5 +1,5 @@
 """Deterministic mixer-style EQ handoffs, independent of track ordering."""
-def eq_swap_graph(gains, first_seconds, second_seconds, overlap, bpm, phase=0.0, protect_lead=False, long_blend=False):
+def eq_swap_graph(gains, first_seconds, second_seconds, overlap, bpm, phase=0.0, protect_lead=False, long_blend=False, controlled_blend=False):
     beat = 60 / bpm
     transition = first_seconds - overlap
     expected = first_seconds + second_seconds - overlap
@@ -8,8 +8,8 @@ def eq_swap_graph(gains, first_seconds, second_seconds, overlap, bpm, phase=0.0,
     desired_swap = overlap - beat if protect_lead else overlap / 2
     swap = phase + round((desired_swap - phase) / beat) * beat
     swap = max(beat, min(overlap - beat, swap))
-    bass_width = (4 if long_blend else .5) * beat
-    mid_width = min((64 if long_blend else 8) * beat, overlap / 2)
+    bass_width = (4 if long_blend else 2 if controlled_blend else .5) * beat
+    mid_width = min((64 if long_blend else 16 if controlled_blend else 8) * beat, overlap / 2)
     upper_split = 4500 if protect_lead else 1800
     graph = []
     for index, gain in enumerate(gains):
@@ -41,7 +41,7 @@ def eq_swap_graph(gains, first_seconds, second_seconds, overlap, bpm, phase=0.0,
                  f'atrim=duration={expected:.9f}[out]')
     return ';'.join(graph), {
         'name': 'lead_handoff' if protect_lead else 'eq_swap', 'crossover_hz': [180, upper_split],
-        'blend_profile': 'long_groove' if long_blend else 'standard',
+        'blend_profile': 'long_groove' if long_blend else 'controlled' if controlled_blend else 'standard',
         'bass_swap_at_seconds': transition + swap,
         'bass_swap_duration_seconds': bass_width,
         'mid_swap_duration_seconds': 2 * beat if protect_lead else mid_width,

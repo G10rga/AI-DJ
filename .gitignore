@@ -23,3 +23,7 @@ dist/
 *.log
 tools/
 *.egg-info/
+.taste-skill/
+.impeccable/*
+!.impeccable/design.json
+!.impeccable/config.json
