@@ -28,7 +28,7 @@ def separate_local(path, pointer, settings, storage):
     return json.loads(pointer.read_text(encoding='utf-8'))
 
 
-def render_set(entries, plan, details, settings, storage, *, separate=separate_local):
+def render_set(entries, plan, details, settings, storage, *, separate=separate_local, publish_guard=None):
     plan.validate()
     if plan.sample_rate != 44100:
         raise ValueError('Stem set rendering currently supports 44100 Hz plans')
@@ -52,6 +52,8 @@ def render_set(entries, plan, details, settings, storage, *, separate=separate_l
     try:
         work.mkdir()
         state = _render(ordered, plan, details, s, storage, name, work, separate)
+        if publish_guard is not None and not publish_guard():
+            raise RuntimeError('Workflow was cancelled or interrupted; this render was not published')
         state['attempt_id'] = attempt
         state['published'] = database.finish_render(attempt, Path(state['output']).name, state)
         return state
@@ -95,7 +97,8 @@ def _render(ordered, plan, details, s, storage, name, work, separate):
         if t.style == 'boundary_fade':
             accepted = {'bars': 0, 'overlap': t.overlap_seconds, 'phase': 0,
                         'warning': 'Planned boundary fade; beatmatching is not claimed.'}
-        for bars in ([] if accepted else [32,8] if t.bars==32 else [t.bars]):
+        strict=bool(details.get('strict_join_settings'))
+        for bars in ([] if accepted else [t.bars] if strict else [32,8] if t.bars==32 else [t.bars]):
             overlap=bars*240/plan.excerpts[i].target_bpm
             if overlap <= 0 or overlap+(overlaps[i-1] if i else 0)>=lengths[i] or overlap>=lengths[i+1]:continue
             try:
@@ -128,6 +131,8 @@ def _render(ordered, plan, details, s, storage, name, work, separate):
                 delays[i+1] = candidate_delay
                 accepted={'bars':bars,'overlap':overlap,'phase':ga['phase_seconds'],'checks':checks};break
             except ValueError:continue
+        if accepted is None and strict:
+            raise ValueError('Selected model transition failed independent timing validation; recipe and cues were not silently replaced.')
         if accepted is None:
             beat=60/plan.excerpts[i].target_bpm;ov=32*beat
             for cut in np.arange(4*beat,32+beat,4*beat):

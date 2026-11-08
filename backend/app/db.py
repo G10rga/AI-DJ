@@ -72,6 +72,49 @@ CREATE TABLE IF NOT EXISTS candidate_events (
  kind TEXT NOT NULL CHECK(kind IN ('validated','rejected','audition')),
  payload_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS reference_imports (
+ id TEXT PRIMARY KEY, snapshot_json TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS reference_alignments (
+ id TEXT PRIMARY KEY, reference_id TEXT NOT NULL REFERENCES reference_imports(id),
+ snapshot_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS reference_annotations (
+ reference_id TEXT NOT NULL REFERENCES reference_imports(id), revision INTEGER NOT NULL,
+ annotation_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(reference_id, revision)
+);
+CREATE TABLE IF NOT EXISTS reference_transition_drafts (
+ id TEXT PRIMARY KEY, reference_id TEXT NOT NULL REFERENCES reference_imports(id),
+ alignment_id TEXT NOT NULL REFERENCES reference_alignments(id), snapshot_json TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS reference_transition_reviews (
+ draft_id TEXT NOT NULL REFERENCES reference_transition_drafts(id), position INTEGER NOT NULL,
+ revision INTEGER NOT NULL, review_json TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(draft_id,position,revision)
+);
+CREATE TABLE IF NOT EXISTS workflow_jobs (
+ id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('train','test_mix')),
+ request_key TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','interrupted','cancelled')),
+ payload_json TEXT NOT NULL, result_json TEXT, error TEXT, stage TEXT NOT NULL DEFAULT 'Queued',
+ progress REAL NOT NULL DEFAULT 0, cancel_requested INTEGER NOT NULL DEFAULT 0,
+ owner TEXT, heartbeat REAL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ finished_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS workflow_active_request ON workflow_jobs(request_key)
+ WHERE status IN ('queued','running');
+CREATE TABLE IF NOT EXISTS workflow_leases (
+ name TEXT PRIMARY KEY, owner TEXT NOT NULL, expires REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS decision_models (
+ id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES workflow_jobs(id),
+ draft_id TEXT NOT NULL REFERENCES reference_transition_drafts(id),
+ storage_name TEXT NOT NULL UNIQUE, manifest_json TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -95,10 +138,10 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in {0, 1, 2, 3, 4}:
+            if version not in {0, 1, 2, 3, 4, 5, 6, 7}:
                 raise RuntimeError("Unsupported database version")
             connection.executescript(SCHEMA)
-            connection.execute("PRAGMA user_version = 4")
+            connection.execute("PRAGMA user_version = 7")
 
     def register_plan(self, entries, plan):
         """Register members and their initial plan in one transaction."""

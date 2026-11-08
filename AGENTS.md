@@ -38,6 +38,37 @@ scores are heuristic, not a trained owner-preference model. Preserve immutable
 candidate snapshots and requested/applied settings. Never silently change the
 recipe of a selected contextual join after a technical failure.
 
+Step 4 CLI foundation: `docs/reference-import.md` and
+`docs/superpowers/plans/2026-11-08-reference-import.md`. Reference imports retain
+the supplied order and repeated occurrences. Alignment anchors are unreviewed
+proposals; only explicit human annotations may become observed-style examples.
+Keep unknown controls null and never treat unobserved alternatives as negatives.
+
+Owner explicitly requested training on HouseMixN3 on 2026-11-08. The implemented
+experiment uses positive-only automatic successor context, not fabricated style
+or preference labels. See `docs/reference-learning.md`. Its held-out result loses
+to the mean baseline; keep it experimental/inactive and preserve the evaluation.
+
 ## Commits
+
+Owner requested click-based training and test generation on 2026-11-08.
+`/learning` now owns that workflow; see `docs/ui-learning.md` and
+`docs/superpowers/plans/2026-11-08-ui-learning-workflow.md`. Schema 7 stores
+persistent jobs, worker leases and experimental decision-model versions.
+Train only pinned latest completed/included human reviews; pending/excluded
+rows are neither examples nor negatives. Preserve unknown style masks, strict
+checkpoint/hash provenance, source-disjoint evaluation and the mean baseline.
+This supervised cue/overlap model differs from the earlier successor experiment.
+Models apply only to requested test jobs, never automatic active promotion.
+Keep cancellation/publication guards, exact ordered source entries and requested/
+applied cue provenance. A nearby rhythm-supported cue search is bounded to 32s;
+the frozen model recipe must fail visibly rather than silently fall back.
+Normal train/test/cancel/retry/play/download operations must remain available in
+the UI without chat or CLI. Preserve actual owner reviews and playable results.
+
+Reference transition listening review: `docs/reference-review.md`. Draft/search
+ranges are unreviewed estimates. Only saved, explicitly included human reviews
+export as cue/style observations; saving does not automatically train a model.
+Preserve independent per-join revisions and keep unknown controls unlabeled.
 
 Only commit when the owner asks. Do not commit secrets or large audio fixtures.

@@ -1,6 +1,11 @@
 """Loopback-only musical timeline review and correction API."""
 from pathlib import Path
 from urllib.parse import urlsplit
+from urllib.parse import unquote
+from contextlib import asynccontextmanager
+import json
+from uuid import uuid4
+from starlette.concurrency import run_in_threadpool
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +13,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .config import Settings
 from .timelines import TimelineStore
 from .playback import PlaybackLibrary
+from .reference_review import ReferenceReviewStore
+from .workflow import Workflow
+from .workflow_manager import WorkflowManager
+from .audio.probe import probe
+from .library import EXTENSIONS
 from scripts.setup_timeline import sha256
 
 ASSETS = Path(__file__).with_name('web_assets')
@@ -17,7 +27,15 @@ def create_app(settings=None):
     settings = settings or Settings.from_env()
     store = TimelineStore(settings.data_root)
     listening = PlaybackLibrary(settings.data_root)
-    app = FastAPI(title='AI-DJ timeline review', docs_url=None, redoc_url=None)
+    references = ReferenceReviewStore(settings)
+    workflow=Workflow(settings)
+    @asynccontextmanager
+    async def lifespan(app):
+        manager=WorkflowManager(settings)
+        manager.start()
+        try:yield
+        finally:manager.stop()
+    app = FastAPI(title='AI-DJ local mixing', docs_url=None, redoc_url=None, lifespan=lifespan)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]'])
 
     @app.middleware('http')
@@ -43,6 +61,158 @@ def create_app(settings=None):
     @app.get('/timelines')
     def timelines_page():
         return FileResponse(ASSETS/'index.html')
+
+    @app.get('/references')
+    def references_page():
+        return FileResponse(ASSETS/'references.html')
+
+    @app.get('/learning')
+    def learning_page():
+        return FileResponse(ASSETS/'learning.html')
+
+    @app.get('/api/v1/learning/state')
+    def learning_state(draft_id: str | None = None):
+        try:
+            library=workflow.reviews.list()
+            chosen=draft_id or next((r['draft_id'] for r in library if r['draft_id']),None)
+            songs=workflow.catalog()
+            defaults=[]
+            if chosen:
+                for track in workflow.reviews.batch(chosen)['tracks'][:2]:
+                    digest=track.get('source_hash') or (track['sources'][0]['content_hash'] if track['sources'] else None)
+                    source=next((s for s in songs if s['content_hash']==digest),None)
+                    if source:defaults.append(source['id'])
+            return {'references':library,'readiness':workflow.readiness(chosen) if chosen else None,
+                    'models':workflow.models(),'jobs':workflow.jobs(),'library':songs,'default_track_ids':defaults}
+        except KeyError:
+            raise HTTPException(404,'Reference draft not found')
+
+    async def workflow_payload(request):
+        if len(await request.body())>64*1024:raise HTTPException(413,'Request is too large')
+        payload=await request.json()
+        if not isinstance(payload,dict):raise ValueError('Expected a workflow request')
+        return payload
+
+    @app.post('/api/v1/learning/train')
+    async def train_from_reviews(request:Request):
+        try:
+            payload=await workflow_payload(request)
+            return workflow.enqueue_train(payload.get('draft_id'))
+        except KeyError:raise HTTPException(404,'Reference draft not found')
+        except (ValueError,TypeError) as exc:raise HTTPException(422,str(exc))
+
+    @app.post('/api/v1/learning/test-mixes')
+    async def generate_test_mix(request:Request):
+        try:
+            payload=await workflow_payload(request)
+            return workflow.enqueue_test(payload.get('model_id'),payload.get('track_ids'),
+                                         payload.get('seconds',72),payload.get('baseline',False))
+        except KeyError:raise HTTPException(404,'Selected model or song is unavailable')
+        except (ValueError,TypeError) as exc:raise HTTPException(422,str(exc))
+
+    @app.post('/api/v1/learning/library')
+    async def import_learning_song(request:Request):
+        destination=None
+        try:
+            name=Path(unquote(request.headers.get('x-file-name',''),errors='strict').replace('\\','/')).name
+            if not name or len(name)>240 or any(ord(c)<32 for c in name) or Path(name).suffix.lower() not in EXTENSIONS:
+                raise ValueError('Choose a supported MP3, WAV, FLAC, M4A, AIFF or OGG song')
+            length=int(request.headers.get('content-length','0'))
+            if not 0<=length<=settings.max_upload_bytes:raise HTTPException(413,'Song exceeds the upload size limit')
+            workflow.storage.require_space(length,settings.min_free_bytes)
+            destination=workflow.storage.new_upload_path();size=0
+            with destination.open('wb') as stream:
+                async for chunk in request.stream():
+                    size+=len(chunk)
+                    if size>settings.max_upload_bytes:raise HTTPException(413,'Song exceeds the upload size limit')
+                    stream.write(chunk)
+            def register():
+                info=probe(destination,settings)
+                if not 2<=info.duration<=1200:raise ValueError('Choose an original song between 2 seconds and 20 minutes')
+                digest=sha256(destination);identity='upload-'+uuid4().hex
+                with workflow.db.connection() as c:
+                    c.execute('INSERT INTO tracks(id,content_hash,original_name,storage_name,metadata_json) VALUES (?,?,?,?,?)',
+                        (identity,digest,name,'external:'+identity,json.dumps({'external_path':str(destination)})))
+                import hashlib
+                catalog_id=hashlib.sha256((digest+':'+str(destination.resolve())).encode()).hexdigest()[:24]
+                return {'id':catalog_id,'imported':name,'duration_seconds':info.duration}
+            result=await run_in_threadpool(register)
+            destination=None
+            return result
+        except (ValueError,OSError,RuntimeError) as exc:raise HTTPException(422,str(exc))
+        finally:
+            if destination is not None:destination.unlink(missing_ok=True)
+
+    @app.post('/api/v1/learning/jobs/{identity}/cancel')
+    def cancel_workflow(identity:str):
+        try:return workflow.cancel(identity)
+        except KeyError:raise HTTPException(404,'Job not found')
+
+    @app.post('/api/v1/learning/jobs/{identity}/retry')
+    def retry_workflow(identity:str):
+        try:return workflow.retry(identity)
+        except KeyError:raise HTTPException(404,'Job not found')
+        except ValueError as exc:raise HTTPException(422,str(exc))
+
+    @app.get('/api/v1/learning/jobs/{identity}/log')
+    def workflow_log(identity:str):
+        try:
+            workflow.job(identity)
+            path=settings.data_root/'tmp'/('workflow-'+identity)/'job.log'
+            if not path.is_file():raise KeyError(identity)
+            return FileResponse(path,media_type='text/plain',filename='mixing-job.log')
+        except KeyError:raise HTTPException(404,'Job log is not available yet')
+
+    @app.get('/api/v1/references')
+    def reference_list():
+        return {'references': references.list()}
+
+    @app.get('/api/v1/reference-drafts/{draft_id}')
+    def reference_batch(draft_id: str):
+        try:
+            return references.batch(draft_id)
+        except KeyError:
+            raise HTTPException(404, 'Reference draft not found')
+
+    @app.post('/api/v1/reference-drafts/{draft_id}/transitions/{position}/reviews')
+    async def reference_review(draft_id: str, position: int, request: Request):
+        if len(await request.body()) > 128*1024:
+            raise HTTPException(413, 'Review is too large')
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError('Expected a review object')
+            return references.save(draft_id, position, payload.get('expected_revision'), payload.get('review'))
+        except KeyError:
+            raise HTTPException(404, 'Reference draft or transition not found')
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(409 if 'reload' in str(exc) else 422, str(exc))
+
+    @app.get('/api/v1/reference-drafts/{draft_id}/training-examples')
+    def reference_examples(draft_id: str):
+        try:
+            return JSONResponse(references.export(draft_id), headers={
+                'Content-Disposition': 'attachment; filename="reviewed-reference-decisions.json"'})
+        except KeyError:
+            raise HTTPException(404, 'Reference draft not found')
+
+    @app.get('/api/v1/references/{reference_id}/audio')
+    def reference_recording(reference_id: str):
+        try:
+            return FileResponse(references.audio(reference_id))
+        except (KeyError, OSError):
+            raise HTTPException(404, 'Reference recording is unavailable')
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+
+    @app.get('/api/v1/references/{reference_id}/sources/{position}/{digest}/audio')
+    def reference_source(reference_id: str, position: int, digest: str):
+        try:
+            return FileResponse(references.audio(reference_id, position, digest))
+        except (KeyError, OSError):
+            raise HTTPException(404, 'Reference source is unavailable')
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
 
     @app.get('/api/v1/mixes')
     def mixes():

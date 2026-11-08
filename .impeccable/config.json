@@ -29,6 +29,15 @@
         ],
         "createdAt": "2026-11-07T19:16:51.753Z",
         "reason": "Agent: false positive from unresolved root-relative stylesheets; browser inspection confirms inherited 22/14px desktop and 20/14px mobile title/body scale from DESIGN.md."
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "backend/app/web_assets/learning.html"
+        ],
+        "createdAt": "2026-11-08T18:09:47.895Z",
+        "reason": "Codex triage: imported editor.css supplies DESIGN.md heading tokens: desktop h1 22px/h2 16px (1.375x), mobile 20px/15px (1.333x). Validated desktop/tablet/mobile captures and independent finish review preserve this established hierarchy; HTML-only finding misses shared styles."
       }
     ]
   }

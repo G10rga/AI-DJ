@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Reference review · AI-DJ</title>
+  <link rel="stylesheet" href="/assets/editor.css">
+  <link rel="stylesheet" href="/assets/mixes.css">
+  <link rel="stylesheet" href="/assets/references.css">
+  <script src="/assets/references.js" defer></script>
+</head>
+<body>
+  <header class="shell"><a href="/" class="brand" aria-label="AI-DJ home"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 17V11M9 23V5M15 27V1M21 20V8M27 17V11"/></svg>AI-DJ</a><nav class="page-nav" aria-label="Main navigation"><a href="/mixes">Mixes</a><a href="/timelines">Timelines</a><a href="/references" aria-current="page">References</a><a href="/learning">Learning</a></nav><span class="local">Local library</span></header>
+  <main id="reference-page">
+    <aside aria-label="Reference review queue">
+      <label for="reference-select">Reference mix</label>
+      <select id="reference-select" disabled><option>Loading recordings…</option></select>
+      <p id="review-count" class="queue-summary">Loading review queue…</p>
+      <details id="queue-panel" open><summary>Choose transition</summary>
+      <label for="queue-filter">Show transitions</label>
+      <select id="queue-filter"><option value="all">All transitions</option><option value="pending">Not reviewed</option><option value="included">Included for learning</option><option value="excluded">Excluded</option></select>
+      <nav id="transition-list" aria-label="Transitions to review"></nav>
+      </details>
+      <a id="export-reviews" class="export-link" hidden>Download reviewed examples</a>
+    </aside>
+    <section class="workspace">
+      <div class="title-row"><div><h1>Review transitions</h1><p id="reference-summary">Listen, correct the timing, then choose what to learn from.</p><a class="learning-link" href="/learning">Train and make test mixes</a></div><button id="reload-reference" type="button">Reload saved reviews</button></div>
+      <div id="message" role="status" aria-live="polite"></div>
+      <div id="reference-empty" class="empty" hidden><h2>No reference mixes ready</h2><p>Import a recording with its original songs to start reviewing transitions.</p></div>
+      <div id="review-workspace" hidden>
+        <section class="timeline-panel recording-panel" aria-label="Reference recording playback">
+          <div class="pair-heading"><h2 id="pair-title"></h2><span id="join-position" class="muted"></span></div>
+          <p id="draft-description" class="draft-description"></p>
+          <audio id="reference-audio" controls preload="metadata" aria-label="Reference recording"></audio>
+          <div class="reference-transport"><button id="listen-handoff" type="button">Listen to handoff</button><button id="mark-entry" type="button">Set entry here</button><button id="mark-exit" type="button">Set exit here</button><span id="review-revision" class="muted"></span></div>
+        </section>
+        <form id="review-form" novalidate>
+          <fieldset class="timing-fields"><legend>Timing in the recording</legend><p class="section-help">Entry is when the incoming song begins. Exit is when the outgoing song ends. Times accept m:ss or seconds.</p><div class="recording-times"><label>Incoming entry<input id="mix_start" type="text" inputmode="decimal" placeholder="m:ss" autocomplete="off"></label><label>Outgoing exit<input id="mix_end" type="text" inputmode="decimal" placeholder="m:ss" autocomplete="off"></label><button id="estimate-cues" type="button">Update source estimates</button></div></fieldset>
+          <div class="source-columns">
+            <fieldset class="source-group"><legend>Outgoing song</legend><p id="outgoing-title" class="source-title"></p><label for="outgoing_hash">Original file</label><select id="outgoing_hash"></select><audio id="outgoing-audio" controls preload="metadata" aria-label="Outgoing original song"></audio><div class="source-times"><label>Source at entry<input id="outgoing_source_in" type="text" inputmode="decimal" placeholder="m:ss" autocomplete="off"></label><label>Source at exit<input id="outgoing_source_out" type="text" inputmode="decimal" placeholder="m:ss" autocomplete="off"></label></div><div class="source-actions"><button type="button" data-mark="outgoing_source_in">Set source entry here</button><button type="button" data-mark="outgoing_source_out">Set source exit here</button></div></fieldset>
+            <fieldset class="source-group"><legend>Incoming song</legend><p id="incoming-title" class="source-title"></p><label for="incoming_hash">Original file</label><select id="incoming_hash"></select><audio id="incoming-audio" controls preload="metadata" aria-label="Incoming original song"></audio><div class="source-times"><label>Source at entry<input id="incoming_source_in" type="text" inputmode="decimal" placeholder="m:ss" autocomplete="off"></label><label>Source at exit<input id="incoming_source_out" type="text" inputmode="decimal" placeholder="m:ss" autocomplete="off"></label></div><div class="source-actions"><button type="button" data-mark="incoming_source_in">Set source entry here</button><button type="button" data-mark="incoming_source_out">Set source exit here</button></div></fieldset>
+          </div>
+          <fieldset class="decision-fields"><legend>What should the model learn?</legend><div class="decision-grid"><label>Use this transition?<select id="learn"><option value="">Choose after listening</option><option value="include">Include for learning</option><option value="exclude">Exclude from learning</option></select></label><label>Transition style<select id="recipe"><option value="">Unknown / leave unlabeled</option><option value="groove_32">32-bar groove blend</option><option value="controlled_16">16-bar controlled blend</option><option value="eq_8">8-bar EQ handoff</option><option value="cut">Cut</option><option value="other">Other</option></select></label><label>Overlap bars, if known<input id="overlap_bars" type="number" min="0" max="512" step="any" placeholder="Unknown"></label></div><div class="observation-grid"><label>Vocal behavior, if known<input id="vocal_behavior" type="text" maxlength="500" placeholder="Leave blank if unsure"></label><label>Energy behavior, if known<input id="energy_behavior" type="text" maxlength="500" placeholder="Leave blank if unsure"></label></div><label class="note-label">Review note<input id="review-note" type="text" maxlength="2000" placeholder="Anything to preserve about this handoff"></label><label class="review-checkbox"><input id="listened" type="checkbox">I reviewed this handoff by listening.</label><div class="review-actions"><button id="save-review" type="submit" class="primary" disabled>Save review</button><button id="discard-review" type="button" disabled>Discard edits</button><button id="next-transition" type="button">Next transition</button><span id="edit-state" class="muted">No listening review saved</span></div></fieldset>
+        </form>
+        <details class="alignment-evidence"><summary>Source match evidence</summary><p>Raw spectral similarity helps locate the handoff. It does not establish audible fade boundaries or musical quality.</p><div class="evidence-legend"><span class="outgoing-key">Outgoing source</span><span class="incoming-key">Incoming source</span></div><svg id="match-chart" viewBox="0 0 800 160" role="img" aria-label="Source similarity near the estimated handoff"></svg><p id="evidence-caption"></p></details>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,5 +1,251 @@
 # Handoff — AI DJ Set Maker
 
+## Training and test mixes from the UI — 2026-11-08
+
+Owner requested completing review → training → test mixes with buttons, without
+chat commands. Implemented **http://127.0.0.1:8000/learning**, shared navigation
+and reference-page link. Usage: `docs/ui-learning.md`; implementation plan:
+`docs/superpowers/plans/2026-11-08-ui-learning-workflow.md`.
+
+- Train from included reviews, choose model version, select/upload/reorder songs,
+  generate model test or baseline, monitor progress, cancel/retry, play/download.
+  Polling preserves active audio nodes and exclusive playback; no autoplay.
+- Schema 7 persists jobs, a single heavy-worker lease and model registry. Training
+  pins review revisions and source hashes. Pending/excluded reviews never train;
+  unknown styles are masked. CPU supervised source-cue/overlap prediction uses
+  frozen spectral features, with source-disjoint holdout where possible. This is
+  separate from the earlier weak successor-context model. No default promotion.
+- Models/artifacts/checkpoints are hashed and loaded strictly. Changed reviews
+  require retraining before another model test. Jobs retain immutable snapshots,
+  cancellation kills owned subprocesses, and publication guards preserve prior
+  playable results. Retry/recovery and duplicate active-request handling persist.
+- Test cues use nearest rhythm-supported bar candidates within 32 seconds of
+  predictions; movements are visible. Model recipes cannot silently change after
+  technical validation fails. Ordered songs, including repeats, remain intact.
+- Actual owner data remains **3 included completed reviews**, positions 0,1,3,
+  and zero style labels. No owner decisions or synthetic labels were added.
+  Real UI training job/model `f5dc59e4371e466aaaa572f6767e92d0` succeeded.
+  Train 2 / held-out 1; normalized held-out MSE 0.05131 vs mean baseline 0.03789.
+  The UI honestly reports this worse result and keeps the model experimental.
+- Real model test `ed0b9fcfcca54c09807f450169c9bdc7` rendered 87.24 seconds,
+  mix `41b932c495b448eda595996f3f32fc8d`. Another user-visible model test also
+  succeeded. UI baseline → Cancel → Retry produced successful baseline job
+  `3c4e00dbe4cf4269ae1617863f2a3e07`, 125.72 seconds. Earlier failed/cancelled
+  jobs remain truthful history. Technical success is not musical acceptance.
+- Full suite: **110 tests OK, 3 isolated-runtime skips**. Then **10 targeted
+  tests passed**, including two additions after that run. Isolated CPU PyTorch
+  run: **4 passed**. Browser: **18 checks passed**, plus actual training/render/
+  cancel/retry actions. Evidence/screenshots: `.impeccable/review/learning`.
+- Healthy existing local server remains running; logs
+  `D:\AI-DJ-data\tmp\workflow-server.{out,err}.log`. Live upload response may
+  omit an ID until the next normal restart; the client supports both response
+  versions by resolving newly registered catalog IDs. No restart is needed.
+- Inherited true-black-flat/Inter design preserved. Inspector: 0 FAIL; native
+  audio accounts for the panel-void warning. Independent finish reviewer found
+  one material issue, now resolved: historical model jobs display their pinned
+  version/identity even if the current selector changes or the model is missing.
+  Reviewer verdict pass: **ship for that sole scored fix**. Four additional
+  browser provenance checks passed across all three historical model jobs.
+  Documenter comparison confirms incumbent-system fidelity; DESIGN.md and its
+  sidecar remain unchanged. Pre-existing PRODUCT.md drift was recorded without
+  repair. Review and documentation reports are in the learning evidence folder.
+
+Reference review is still the human step. After more saved included reviews,
+press Train, then choose songs and Generate test mix. Learning quality beyond
+this small experiment needs more representative reviewed transitions/listening.
+No commits, pushes, external services or learned waveform/EQ curves were added.
+
+## Entry/exit-only save fix — 2026-11-08
+
+Owner reported being unable to save corrected recording entry/exit. The previous
+form required a completed listening decision and all six included-example times;
+editing also cleared listening confirmation. Added a separate pending timing save.
+
+- Any corrected endpoint can now save via **Save timing**, with undecided learning
+  choice, missing source cues and no listening confirmation. Pending revisions
+  preserve partial progress; they are never exported as reviewed examples.
+- Explicit completed include/exclude reviews remain strict. Saving a changed
+  approved review without re-confirming makes the new revision pending and removes
+  it from current training export. Old revisions stay intact. Counts/queue/form
+  distinguish saved timing drafts from actual completed listening reviews.
+- Fixed reload race: lock controls until the reference response has populated
+  the form so refresh cannot overwrite a concurrent edit/save result.
+- Validation still rejects nonfinite/out-of-range/reversed times with field
+  names in the error. No schema migration required; new reviewed=false payloads
+  use the existing append-only reference_transition_reviews table.
+- **21 reference/review tests pass** and **13 browser regression checks pass**
+  against isolated copied data, including two-field/one-field saves, reload
+  survival, missing source cues, pending inclusion exclusion from training,
+  explicit approval, correction after approval, reload locking and 1440/390 fit.
+- Existing user reviews are preserved: production had actual saved reviews at
+  positions 0, 1 and 3 while debugging; do not confuse them with synthetic tests
+  or overwrite/reset them. Browser regression rows live only in
+  `D:\AI-DJ-data\tmp\reference-review-browser-9be7d7ae4ea34009aa2cae04b99f9349`.
+  Production server restarted with updated backend, hidden/detached; logs now
+  `D:\AI-DJ-data\tmp\save-timing-server.{out,err}.log`.
+  Screenshots/checks: `.impeccable/review/references/save-timing-*`.
+
+Owner should note any times still unsaved in the old open page before refreshing
+to load the new client; future edits can then save as pending timing immediately.
+No human review decisions or new training labels were created by the agent.
+
+## Actual transition drafts and browser listening review — 2026-11-08
+
+Owner accepted extracting/reviewing actual reference transition decisions before
+training on them. Implemented preparation and the human collection surface;
+the owner must now listen and save actual decisions. Usage:
+`docs/reference-review.md`; plan:
+`docs/superpowers/plans/2026-11-08-transition-review.md`.
+
+- `reference_review.py` fits source-to-recording mappings and measures aligned
+  four-second spectral agreement. It proposes source-bounded overlap/search
+  brackets and labels coarse anchor fallback. These are listening search ranges,
+  not proof of exact audible fades. Styles/bars/vocal/energy labels stay unknown.
+- Real 40-join batch:
+  `87855a29974246056e45efdde3eb964afe6482566cb55c22f46884e7b6c4b986`.
+  Artifact: `D:\AI-DJ-data\references\housemix-n3\transition-drafts.json`.
+  There are 38 bounded draft/search ranges and two unresolved handoffs around
+  Can't Get Enough. All 41 occurrences/40 joins remain. Earlier extraction
+  iterations stay immutable; the newest batch is shown in the UI.
+- SQLite schema 6 adds immutable transition drafts and append-only per-join
+  listening reviews with optimistic revisions. Reviews choose registered sources,
+  edit six times, optionally label style/bars/vocals/energy, explicitly include/
+  exclude and confirm listening. Included examples need valid complete timing;
+  exclusions may keep unknowns. Millisecond display rounding respects bounds.
+  Exports contain only latest explicitly reviewed/included observations, never
+  drafts or fabricated preference negatives.
+- **http://127.0.0.1:8000/references**, linked from Mixes/Timelines: native MP4
+  recording/source players, exclusive playback, scoped handoff listening, cue
+  marking, queue/filter, independent save/export, dirty/saving/failure/conflict
+  recovery. Phone queue folds; tablet source players stack. Unknown styles stay
+  unlabeled. Audio resolves registered IDs and rejects changed source bytes.
+  Heavy extraction is CLI-only, never triggered by page GET requests.
+- Production server restarted detached/hidden with current code via local.ps1.
+  Logs: `D:\AI-DJ-data\tmp\reference-review-server.{out,err}.log`.
+  Isolated browser server on 8001 was stopped. Its copied database remains at
+  `D:\AI-DJ-data\tmp\reference-review-browser-9c626f902dd24bf3bcc92b03aaf779f3`.
+  Synthetic browser reviews exist there only. Production confirmed 0/40 reviewed,
+  zero included/excluded and an empty training export after browser testing.
+- Verification: full suite **94 tests, OK, one PyTorch-only skip**. Added a final
+  millisecond-boundary regression afterward; all **seven reference-review tests
+  pass**. Synthetic extraction locates an 80–100s overlap; persistence/API tests
+  cover immutable drafts, revisions, exclusions/cuts, unknowns, ranges, hashes and
+  cross-origin restrictions. **31 real browser checks pass**, including actual
+  MP4 playback/seeking, source exclusivity, marking, saves/exports, stale writes,
+  failed/delayed saves, dirty work, empty/error recovery and 1440/768/390 fit.
+  None of these checks implies musical acceptance.
+- Design-taste-frontend and Impeccable skills inherited the existing true-black
+  direction/Inter/tokens with no redraw. Inspector zero FAIL, one native-audio
+  panel-void false positive. Fresh finish-review disposition **ship**, no material
+  fixes. Documenter comparison also ship; DESIGN.md/design.json preserved.
+  Evidence under `.impeccable/review/references`. Pre-existing PRODUCT.md identity
+  wording drift was recorded without repair. No commits or pushes.
+
+Next: owner opens References, listens to a few handoffs, corrects recording/source
+times, includes useful examples and saves. Supervised cue/style learning should
+consume those decisions once they exist. Saving does not automatically train;
+no listening labels or subsequent training were fabricated in this turn.
+
+## Experimental ML trained on HouseMixN3 — 2026-11-08
+
+Owner explicitly said "train ML on that mix". Completed an actual CPU PyTorch
+training run on the matched source/recording passages and supplied order.
+Plan: `docs/superpowers/plans/2026-11-08-reference-training.md`.
+Usage/limits: `docs/reference-learning.md`.
+
+- New `planning/reference_learning.py` builds positive-only observed-successor
+  context examples, splits source identities with a recording-window embargo,
+  fits train-only scalers, trains and strictly loads the small residual network.
+  CLI: `scripts.train_reference`; isolated runtime worker:
+  `scripts.reference_training_worker`. No new packages or downloads.
+- Model predicts next-source spectral musical descriptors from outgoing source
+  and actual recording context. It does not claim cue/style/preference learning,
+  exact mixer controls or learned audio/EQ curves. Automatic anchors remain
+  unreviewed; human style/preference counts stay zero. Missing entry 6 is excluded
+  without bridging its neighbors. No feedback database or active model changed.
+- Real dataset: 40 located occurrences, 133 augmented windows from 38 observed
+  joins. Training: 86 windows/26 joins. Evaluation: 36 windows/nine joins.
+  Cross-group edges: eleven windows/three joins excluded. Repeated source hash
+  occurrences stay in one group; all windows of each pair stay together.
+- PyTorch 2.6.0+cpu, NumPy 1.26.4 in existing timeline runtime. Seed 11, 300 fixed
+  epochs, 128→24→64 residual network; no held-out hyperparameter selection.
+  Pair-weighted evaluation MSE: **2.5470 model, 1.6950 mean baseline, 3.0990
+  persistence**. Training MSE 0.3575. It beats persistence but fails the mean
+  baseline. No mixing-quality improvement or independent-set generalization is
+  established. Status experimental, inactive, no listening approval.
+- Model artifacts at
+  `D:\AI-DJ-data\models\reference-context-87e4edc6e599d44f1939087175a1d0d27cc47fed365690687dac47166f47f2c2`:
+  checkpoint.pt, config.json, dataset.json, split.json, report.json. Dataset,
+  config, split and checkpoint have recorded hashes, runtime/implementation
+  provenance and immutable publication. Existing identical runs are preserved.
+- Human-readable result:
+  `D:\AI-DJ-data\references\housemix-n3\training-report.md`.
+  `training-result.json` links the model; `prediction-smoke.json` contains a real
+  strict-load prediction from a held-out example (64 finite dimensions).
+- Verification: six learning tests all pass in isolated PyTorch runtime,
+  including reproducible fitting, tensor-only strict loading and tamper rejection.
+  Main-runtime learning/reference tests: 16 passed, one PyTorch-only check skipped
+  there (passed in isolation). Tests cover unresolved gaps, source-group leakage,
+  repeated sources, recording embargo, train-only scaling and finite descriptors.
+  No commits or pushes.
+
+Reference-style supervision and contextual preference ranking still require
+their actual labels. This experiment is a trained precursor, not completion of
+the entire saved learning milestone. Do not tune to the reported held-out split.
+
+## Reference recording import and first real collection — 2026-11-08
+
+Owner requested reference import and supplied an untimestamped 41-song ordered
+list plus `D:\G1-Drive\Dj\Mixes\HouseMixN3. Good 1 hour mix.mp4` and sources in
+`D:\G1-Drive\Dj\House Bangers`. Recording duration: 3657.119637 seconds (60:57).
+Owner clarified that House Music Anthem is a remix of Move Your Body and that
+Strings of Life uses the vocal version. Owner subsequently confirmed the proposed
+Herd & Fitz and Marshall Jefferson/Solardo source versions are correct. Preserve
+this as identity confirmation, not listening approval of inferred alignments.
+
+- Added `references.py`, bounded spectral matching, SQLite schema 5 and
+  `scripts.import_reference` commands: import/show/align/refine/report/template/
+  review. Usage: `docs/reference-import.md`; implementation scope:
+  `docs/superpowers/plans/2026-11-08-reference-import.md`.
+- Inputs are read in place. Immutable import snapshots retain file hashes,
+  explicit alternative sources, repeated occurrences and missing-source slots.
+  Invalid explicit files fail before publication. Audio extraction uses 40s
+  chunks plus FFT context; 4 Hz log spectral features are cached on D:.
+- Global matching searches 16s windows and duration ratios 0.92–1.08. Ordered
+  proposals require multiple supporting windows and increasing recording anchors.
+  Refinement searches unresolved slots between neighboring anchors, preserves
+  the parent alignment and stores another immutable snapshot. Similarities are
+  uncalibrated; anchors do not establish track boundaries or exact mixer controls.
+- Human JSON review requires every ordered source/excerpt, explicit reviewed
+  status and optimistic revision. Bounds, identity, order and transition fields
+  are validated; observations append revisions. Unknown controls remain null.
+  Reference observations never become preference negatives automatically.
+- Actual reference ID:
+  `2ef77cd59eb76b6d2ca0fa2059624f780bb399f5d4043a78a408f16ff762576b`.
+  Import, manifest, initial/refined alignments, report and untouched review
+  template live at `D:\AI-DJ-data\references\housemix-n3`.
+  `owner-confirmations.json` preserves the later explicit source-identity replies;
+  import-time notes remain immutable. `unresolved-06-cant-get-enough.mp3` is a
+  review excerpt of recording seconds 366–531.75, not a proposed exact interval.
+  Latest detailed alignment ID:
+  `91a13ff56f1d1d0f93b201c77c8af167d9044b90b1189a32e7de0553cd332d4f`.
+  **40/41 ordered proposals; one unresolved**: entry 6 Can't Get Enough (the
+  source is Herd & Fitz — I Just Can't Get Enough 2024). Detailed gap search
+  added a weak unreviewed proposal for entry 9 Move Your Body. The same
+  Marshall Jefferson/Solardo file also matches entry 38 House Music Anthem.
+  Both Stupidisco alternatives were compared; the original Junior Jack file
+  has the ordered proposal. Vocal Strings of Life also has a proposal.
+- No real alignment/listening approval or training labels were entered.
+- Verification: full **81-test suite passed** after updating the old migration
+  assertion to schema 5. An additional refinement/persistence test was then added;
+  all **11 reference tests pass**. Synthetic decoded audio checks chunk continuity
+  and source localization; tempo-changed feature tests and human-review tests
+  cover ambiguity, unknowns, repeated tracks, bad bounds and stale revisions.
+
+This milestone supplies CLI import/alignment/JSON review. Browser reference
+annotation, durable progress and contextual training remain unfinished. Existing
+generated mixes stay available through the browser. No commits or pushes.
+
 ## Mixes now visible and playable in browser — 2026-11-07
 
 Owner asked why the mix was absent from the web interface. Added the missing

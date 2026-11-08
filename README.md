@@ -2,7 +2,12 @@
 
 Personal web app: upload ~30+ house tracks → one continuous DJ-like set with adaptive transitions. Develop and run locally on the owner’s PC first; Ubuntu hosting comes later.
 
-**Status:** Musical timelines, the local correction editor, contextual cue/recipe candidates, matched auditions and opt-in contextual set planning are implemented. The durable worker, reference annotation, trained contextual ranking and complete browser mix/listening workflow remain unfinished. See the usage links below.
+**Status:** Musical timelines, correction, contextual cue/recipe candidates, matched auditions, reference import/review and [UI training and test mixes](docs/ui-learning.md) are implemented. Learning now has persistent background jobs, supervised reviewed cue/overlap prediction, masked style labels, baseline generation and playable results. Full reference-import UI, contextual A/B preference ranking and evaluated model promotion remain unfinished. See [reference import usage](docs/reference-import.md).
+
+An [experimental reference-context model](docs/reference-learning.md) has also
+been trained on HouseMixN3. It predicts observed successor context from automatic
+audio matches and song order; it does not supply reviewed style/preference labels
+or replace the active planner. Its held-out result loses to the mean baseline.
 
 Open **http://127.0.0.1:8000/mixes** for the completed mix, playback/download,
 timestamped tracklist and recent transition previews. Source timeline correction

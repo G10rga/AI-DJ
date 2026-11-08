@@ -71,7 +71,7 @@ class PersistenceTests(unittest.TestCase):
         self.db.initialize()
         self.assertEqual(self.db.load_plan('mix', 1), self.plan)
         with self.db.connection() as c:
-            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0], 4)
+            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0], 7)
 
 
 class SharedRenderTests(unittest.TestCase):
@@ -137,6 +137,24 @@ class SharedRenderTests(unittest.TestCase):
         self.assertEqual(report['joins'][0]['bars'], 8)
         self.assertTrue(report['joins'][0]['instrumental_checks'])
         self.assertAlmostEqual(report['duration'], 32, delta=.15)
+
+    def test_selected_model_recipe_does_not_silently_fallback(self):
+        entries,plan,db=self.setup_plan(2)
+        with patch('backend.app.rendering.pulse_grid',side_effect=ValueError('bad phase')):
+            with self.assertRaisesRegex(ValueError,'not silently replaced'):
+                render_set(entries,plan,{'strict_join_settings':True},self.settings,self.storage,separate=self.fake_separator)
+        with db.connection() as c:
+            self.assertIsNone(c.execute("SELECT playable_revision FROM mixes WHERE id='mix'").fetchone()[0])
+
+    def test_cancelled_workflow_cannot_publish_over_previous_audio(self):
+        entries,plan,db=self.setup_plan(1)
+        old=render_set(entries,plan,{},self.settings,self.storage,separate=self.fake_separator)
+        changed=replace(plan,revision=2);db.save_plan(changed)
+        with self.assertRaisesRegex(RuntimeError,'not published'):
+            render_set(entries,changed,{},self.settings,self.storage,separate=self.fake_separator,publish_guard=lambda:False)
+        with db.connection() as c:
+            self.assertEqual(c.execute("SELECT playable_revision FROM mixes WHERE id='mix'").fetchone()[0],1)
+        self.assertTrue(Path(old['output']).is_file())
 
     def test_separator_failure_preserves_playable_render(self):
         entries, plan, db = self.setup_plan(1)
