@@ -1,5 +1,14 @@
 # Handoff — AI DJ Set Maker
 
+## Main-app improvement execution plan saved — 2026-11-12
+
+Read [plan.md](plan.md) for the current cross-session implementation checklist.
+Owner chose main-app quality first, correction by listening for uncertain joins,
+staged effects and default promotion only after listening validation/approval.
+The plan is saved; implementation has not started. Resume at milestone 1 when
+the owner requests execution. Existing experimental results/rejections below
+remain evidence and must be preserved.
+
 ## Owner reports continuous handoff is better — 2026-11-12
 
 Owner listened to vocal-handoff-fdc44c762ab34ca8990521d1b53addc0 and said
