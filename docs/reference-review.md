@@ -34,6 +34,11 @@ not immediately train or activate a new model. Open **Learning** and press
 [UI learning and testing](ui-learning.md). Unknown style labels are masked.
 The previous successor-context experiment remains inactive.
 
+You can leave transition style unknown and use **Analyze transition** or
+**Analyze reviewed transitions**. Local spectral analysis describes the handoff
+and supplies an automatic style estimate only when sufficiently supported.
+Saved human reviews remain separate. See [transition analysis](transition-analysis.md).
+
 **Download reviewed examples** appears after an included review is saved. It
 exports only the latest explicitly included reviews, their revisions, original
 hashes, cue intervals and optional observations. Excluding a previously included

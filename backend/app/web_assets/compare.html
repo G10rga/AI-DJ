@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><title>Compare transitions · AI-DJ</title><link rel="stylesheet" href="/assets/editor.css"><link rel="stylesheet" href="/assets/mixes.css"><link rel="stylesheet" href="/assets/learning.css"><link rel="stylesheet" href="/assets/compare.css"><script src="/assets/compare.js" defer></script></head>
+<body>
+<header class="shell"><a class="brand" href="/">AI-DJ</a><nav class="page-nav" aria-label="Main navigation"><a href="/mixes">Mixes</a><a href="/timelines">Timelines</a><a href="/references">References</a><a href="/learning">Learning</a><a href="/compare" aria-current="page">Compare</a></nav></header>
+<main id="comparison-page">
+ <div class="title-row"><div><h1>Find a better transition</h1><p>Compare two ways to mix the same songs. Your listening choices teach the preference model.</p></div><button id="refresh-comparisons" type="button">Refresh</button></div>
+ <p id="comparison-message" role="status" aria-live="polite"></p>
+ <section aria-labelledby="pair-heading"><h2 id="pair-heading">Choose a song pair</h2><div class="pair-selectors"><label>Outgoing song<select id="compare-outgoing" disabled></select></label><label>Incoming song<select id="compare-incoming" disabled></select></label></div>
+ <label class="preference-option"><input id="use-preferences" type="checkbox">Use learned ranking for this comparison</label><p id="preference-status" class="help">Loading listening feedback…</p>
+ <div class="workflow-actions"><button id="generate-comparison" class="primary" type="button" disabled>Generate A/B previews</button><a href="/learning">Add songs to the library</a></div><p class="help">Chooses cue points from musical timelines, checks candidate audio and matches preview loudness. Missing timelines are analyzed in the background; first use can take several minutes.</p></section>
+ <section class="comparison-history" aria-labelledby="comparison-history-heading"><h2 id="comparison-history-heading">Listen and choose</h2><p class="help">Play from the handoff, or switch A/B at the same position. Pick the better version, tie, or neither. You do not need to name the mixing technique.</p><div id="comparison-jobs"></div></section>
+</main></body></html>

@@ -9,3 +9,4 @@
 .evidence dl,.evidence ul,.evidence ol,.evidence li button,td button,.toolbar label,.corrections>label{font-size:13px}
 
 .toolbar .field{display:flex;align-items:center;gap:8px}
+@media(max-width:700px){.shell{height:auto;min-height:56px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}.page-nav{flex-wrap:wrap;row-gap:8px}}

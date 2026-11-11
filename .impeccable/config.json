@@ -19,7 +19,7 @@
           "backend/app/web_assets/editor.css"
         ],
         "createdAt": "2026-11-07T18:39:45.240Z",
-        "reason": "Agent: Inter is the intentional self-hosted workhorse face from the adopted true-black-flat Operate app sheet, recorded in DESIGN.md and retained by the fresh finish review."
+        "reason": "Agent: DESIGN.md explicitly requires the established self-hosted Inter typography for this Operate interface. Browser verification confirms it. Preserve the adopted design system; this exception is limited to Inter in editor.css."
       },
       {
         "rule": "flat-type-hierarchy",
@@ -37,7 +37,16 @@
           "backend/app/web_assets/learning.html"
         ],
         "createdAt": "2026-11-08T18:09:47.895Z",
-        "reason": "Codex triage: imported editor.css supplies DESIGN.md heading tokens: desktop h1 22px/h2 16px (1.375x), mobile 20px/15px (1.333x). Validated desktop/tablet/mobile captures and independent finish review preserve this established hierarchy; HTML-only finding misses shared styles."
+        "reason": "Agent: fresh browser verification confirms title 20px mobile and 22px desktop, section 16px, body 13px. Detector cannot resolve shared root-relative /assets stylesheets. Existing project hierarchy is intentional per DESIGN.md."
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "backend/app/web_assets/compare.html"
+        ],
+        "createdAt": "2026-11-11T18:45:33.018Z",
+        "reason": "Agent: browser computed sizes at 390 and 1440 widths are title 20/22px, section 16px and body 13px. Static detector incorrectly resolves root-relative /assets CSS under web_assets/assets and reports all roles as 16px. Preserve DESIGN.md hierarchy."
       }
     ]
   }

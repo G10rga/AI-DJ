@@ -70,6 +70,49 @@ def create_app(settings=None):
     def learning_page():
         return FileResponse(ASSETS/'learning.html')
 
+    @app.get('/compare')
+    def compare_page():
+        return FileResponse(ASSETS/'compare.html')
+
+    @app.get('/api/v1/comparisons')
+    def comparisons_state():
+        from .pair_comparisons import preferences,preference_model
+        prefs=preferences(workflow)
+        with workflow.db.connection() as c:
+            identities=[r[0] for r in c.execute("SELECT id FROM workflow_jobs WHERE kind='pair_audition' ORDER BY rowid DESC LIMIT 30")]
+        jobs=[workflow.job(identity) for identity in identities]
+        for job in jobs:
+            job['review']=prefs.review_state(job['id'])
+        return {'library':workflow.catalog(),'jobs':jobs,'model':preference_model(workflow)}
+
+    @app.post('/api/v1/comparisons')
+    async def enqueue_comparison(request:Request):
+        from .pair_comparisons import enqueue_pair
+        try:
+            payload=await workflow_payload(request)
+            return enqueue_pair(workflow,payload.get('track_ids'),payload.get('use_preferences',False))
+        except (ValueError,TypeError,KeyError) as exc:raise HTTPException(422,str(exc))
+
+    @app.get('/api/v1/comparisons/{identity}/audio/{slot}')
+    def comparison_audio(identity:str,slot:str,download:bool=False):
+        from .pair_comparisons import comparison_audio
+        try:
+            path=comparison_audio(workflow,identity,slot)
+            return FileResponse(path,media_type='audio/mpeg',filename=path.name,
+                content_disposition_type='attachment' if download else 'inline')
+        except (KeyError,OSError):raise HTTPException(404,'Comparison audio unavailable')
+        except ValueError as exc:raise HTTPException(409,str(exc))
+
+    @app.post('/api/v1/comparisons/{identity}/feedback')
+    async def comparison_feedback(identity:str,request:Request):
+        from .pair_comparisons import save_feedback
+        try:
+            payload=await workflow_payload(request)
+            return await run_in_threadpool(save_feedback,workflow,identity,payload.get('choice'),
+                payload.get('expected_revision'),payload.get('notes',''))
+        except (KeyError,OSError):raise HTTPException(404,'Completed comparison unavailable')
+        except (ValueError,TypeError) as exc:raise HTTPException(409 if 'reload' in str(exc) else 422,str(exc))
+
     @app.get('/api/v1/learning/state')
     def learning_state(draft_id: str | None = None):
         try:
@@ -187,6 +230,20 @@ def create_app(settings=None):
             raise HTTPException(404, 'Reference draft or transition not found')
         except (ValueError, TypeError) as exc:
             raise HTTPException(409 if 'reload' in str(exc) else 422, str(exc))
+
+    @app.get('/api/v1/reference-drafts/{draft_id}/analysis')
+    def transition_analysis_state(draft_id: str):
+        try:return workflow.analysis_state(draft_id)
+        except KeyError:raise HTTPException(404,'Reference draft not found')
+
+    @app.post('/api/v1/reference-drafts/{draft_id}/analysis')
+    async def analyze_transitions(draft_id: str, request: Request):
+        try:
+            payload=await workflow_payload(request)
+            return workflow.enqueue_analysis(draft_id,payload.get('position'),payload.get('expected_revision'))
+        except KeyError:raise HTTPException(404,'Reference draft not found')
+        except (ValueError,TypeError) as exc:
+            raise HTTPException(409 if 'reload' in str(exc) else 422,str(exc))
 
     @app.get('/api/v1/reference-drafts/{draft_id}/training-examples')
     def reference_examples(draft_id: str):

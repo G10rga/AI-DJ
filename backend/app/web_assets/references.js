@@ -4,6 +4,7 @@ const timeFields = ['mix_start','mix_end','outgoing_source_in','outgoing_source_
 const valueFields = [...timeFields,'outgoing_hash','incoming_hash','recipe','overlap_bars','vocal_behavior','energy_behavior'];
 const media = [$('reference-audio'),$('outgoing-audio'),$('incoming-audio')];
 let references = [], batch = null, selected = 0, dirty = false, saving = false, loading = false, conflict = false, playEnd = null;
+let analysisState = {analyses:{},jobs:[]}, analysisPolling = false, analysisPosting = false;
 $('queue-panel').open = !window.matchMedia('(max-width:760px)').matches;
 function message(text = '', error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); }
 function formatTime(seconds) {
@@ -56,12 +57,14 @@ function editState() {
   $('save-review').textContent = $('listened').checked && $('learn').value ? 'Save review' : 'Save timing';
   $('edit-state').textContent = saving ? 'Saving changes…' : loading ? 'Loading saved reviews…' : conflict ? 'Reload required before saving' : dirty ? 'Unsaved edits — timing can be saved now' : review?.reviewed ? 'Review saved' : review ? 'Timing saved · listening review pending' : 'No listening review saved';
   $('edit-state').classList.toggle('dirty-state', dirty);
+  analysisButtons();
 }
 function changed(event) {
   if (saving || loading || !batch) return;
   dirty = true;
   if (event?.target?.id !== 'listened') $('listened').checked = false;
   editState();
+  renderAnalysis();
 }
 function setLocked(value) {
   saving = value;
@@ -151,7 +154,7 @@ function populate() {
   updateSource('outgoing'); updateSource('incoming');
   cueSource('outgoing'); cueSource('incoming');
   $('next-transition').disabled = selected === batch.transitions.length-1;
-  drawEvidence(); renderQueue(); editState();
+  drawEvidence(); renderQueue(); editState(); renderAnalysis();
 }
 function selectJoin(index) {
   if (saving || loading || !canLeave()) return;
@@ -168,6 +171,7 @@ async function loadReference(id, preservePosition=false) {
     if (!reference?.draft_id) { batch=null; dirty=false; $('reference-empty').hidden=false; message('Transitions have not been prepared for this recording yet.'); return; }
     const loaded = await request(`/api/v1/reference-drafts/${reference.draft_id}`);
     batch = loaded; selected = preservePosition ? Math.min(selected,batch.transitions.length-1) : 0;
+    analysisState={analyses:{},jobs:[]}; refreshAnalysis();
     $('reference-empty').hidden=true; $('review-workspace').hidden=false;
     $('reference-select').value=id;
     if($('reference-audio').getAttribute('src')!==batch.audio_url) $('reference-audio').src=batch.audio_url;
@@ -240,3 +244,72 @@ async function initialize() {
   } catch(error) { message(`${error.message} Use Reload saved reviews to try again.`,true); }
 }
 initialize();
+
+function analysisButtons() {
+  const row=batch?.transitions[selected], review=row?.review;
+  const busy=saving||loading||analysisPosting;
+  const active=analysisState.jobs.some(j=>j.status==='queued'||j.status==='running');
+  const complete=review && [...timeFields,'outgoing_hash','incoming_hash'].every(k=>review[k]!==null && review[k]!==undefined);
+  $('analyze-transition').disabled=busy||dirty||!complete||active;
+  $('analyze-reviewed').disabled=busy||dirty||!batch?.counts.included||active;
+}
+function renderAnalysis() {
+  analysisButtons();
+  const result=analysisState.analyses[String(selected)];
+  const stale=result && (result.stale||result.review_revision!==batch?.transitions[selected].revision);
+  $('analysis-description').textContent=dirty?'Save your edits before analyzing this transition.':
+    stale?'Timing or review changed. Analyze again to update the description.':result?.description||'No analysis yet. Save your timing and original-song cues, then analyze.';
+  $('analysis-confidence').textContent=result&&!stale&&!dirty?
+    `Evidence: ${result.confidence} (heuristic). ${result.training_eligible?'Automatic style available for the next training run.':'Style stays unknown for training.'} Your saved review is unchanged.`:'';
+  $('analysis-evidence').hidden=!result||stale||dirty;
+  const observations=$('analysis-observations');observations.replaceChildren();
+  observations.hidden=!result||stale||dirty||!result.observations?.length;
+  if(!observations.hidden)result.observations.forEach(value=>{const item=document.createElement('li');item.textContent=value;observations.append(item);});
+  if(result){
+    const quality=result.quality;
+    $('analysis-quality').textContent=quality.relative_spectral_error!==undefined?
+      `Relative spectral error: ${quality.relative_spectral_error.toFixed(3)}. Separable source evidence: ${quality.identifiable_fraction.toFixed(3)}. These measure the fit, not musical quality.`:'Not enough spectral evidence to estimate a technique.';
+    $('analysis-limits').textContent=result.limitations;
+    $('analysis-provenance').textContent=`Saved review revision ${result.review_revision} · ${result.algorithm_version} · automatic estimate, not a human label`;
+  }
+  const jobs=$('analysis-jobs');jobs.replaceChildren();
+  analysisState.jobs.slice(0,3).forEach(job=>{
+    const row=document.createElement('div');row.className='analysis-job';
+    const status=document.createElement('p');
+    status.textContent=job.status==='succeeded'&&job.summary?
+      `${job.summary.processed} analyzed · ${job.summary.recognized} techniques described · ${job.summary.training_labels} training labels · ${job.summary.uncertain} uncertain`:
+      job.status==='succeeded'&&job.outdated?'Earlier analyzer result. Analyze again with the updated version.':
+      `${job.status}: ${job.stage}${job.error?' · '+job.error:''}`;
+    row.append(status);
+    if(job.status==='queued'||job.status==='running'){
+      const progress=document.createElement('progress');progress.max=1;progress.value=job.progress;progress.setAttribute('aria-label','Transition analysis progress');row.append(progress);
+    }
+    const action=['queued','running'].includes(job.status)?'cancel':['failed','interrupted','cancelled'].includes(job.status)?'retry':null;
+    if(action){const button=document.createElement('button');button.type='button';button.textContent=action==='cancel'?'Cancel analysis':'Retry analysis';button.disabled=analysisPosting;
+      button.addEventListener('click',()=>analysisAction(`/api/v1/learning/jobs/${job.id}/${action}`,{}));row.append(button);}
+    jobs.append(row);
+  });
+}
+async function refreshAnalysis() {
+  if(analysisPolling||!batch)return;
+  analysisPolling=true;const id=batch.id;
+  try {
+    const state=await request(`/api/v1/reference-drafts/${id}/analysis`);
+    if(batch?.id===id){analysisState=state;renderAnalysis();}
+  } catch(error){if(batch?.id===id)$('analysis-confidence').textContent=`Analysis status unavailable: ${error.message} Retrying shortly.`;}
+  finally{analysisPolling=false;}
+}
+async function analysisAction(url,payload) {
+  if(analysisPosting)return;analysisPosting=true;analysisButtons();
+  try{await request(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});await refreshAnalysis();}
+  catch(error){message(error.message,true);}
+  finally{analysisPosting=false;renderAnalysis();}
+}
+$('analyze-transition').addEventListener('click',()=>{
+  if(!batch||dirty)return;
+  analysisAction(`/api/v1/reference-drafts/${batch.id}/analysis`,{position:selected,expected_revision:batch.transitions[selected].revision});
+});
+$('analyze-reviewed').addEventListener('click',()=>{
+  if(batch&&!dirty)analysisAction(`/api/v1/reference-drafts/${batch.id}/analysis`,{});
+});
+setInterval(refreshAnalysis,2500);

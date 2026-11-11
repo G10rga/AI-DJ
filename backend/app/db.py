@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS reference_transition_reviews (
  PRIMARY KEY(draft_id,position,revision)
 );
 CREATE TABLE IF NOT EXISTS workflow_jobs (
- id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('train','test_mix')),
+ id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('train','test_mix','transition_analysis','pair_audition')),
  request_key TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','interrupted','cancelled')),
  payload_json TEXT NOT NULL, result_json TEXT, error TEXT, stage TEXT NOT NULL DEFAULT 'Queued',
  progress REAL NOT NULL DEFAULT 0, cancel_requested INTEGER NOT NULL DEFAULT 0,
@@ -138,10 +138,29 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in {0, 1, 2, 3, 4, 5, 6, 7}:
+            if version not in {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}:
                 raise RuntimeError("Unsupported database version")
+            if 0 < version < 9 and connection.execute("SELECT 1 FROM sqlite_master WHERE name='workflow_jobs'").fetchone():
+                # Rebuild only the CHECK constraint; retain IDs referenced by models.
+                connection.execute('PRAGMA foreign_keys = OFF')
+                definition = SCHEMA.split('CREATE TABLE IF NOT EXISTS workflow_jobs (', 1)[1].split(');', 1)[0]
+                try:
+                    connection.execute('BEGIN IMMEDIATE')
+                    connection.execute('CREATE TABLE workflow_jobs_new ('+definition+');')
+                    connection.execute('INSERT INTO workflow_jobs_new SELECT * FROM workflow_jobs')
+                    connection.execute('DROP TABLE workflow_jobs')
+                    connection.execute('ALTER TABLE workflow_jobs_new RENAME TO workflow_jobs')
+                    if connection.execute('PRAGMA foreign_key_check').fetchone():
+                        raise RuntimeError('Workflow migration failed referential integrity check')
+                    connection.execute('PRAGMA user_version = 9')
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                    raise
+                finally:
+                    connection.execute('PRAGMA foreign_keys = ON')
             connection.executescript(SCHEMA)
-            connection.execute("PRAGMA user_version = 7")
+            connection.execute("PRAGMA user_version = 9")
 
     def register_plan(self, entries, plan):
         """Register members and their initial plan in one transaction."""

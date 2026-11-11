@@ -142,6 +142,17 @@ def validate_candidate(candidate, sources, settings, storage):
             'handoff_seconds': candidate['handoff_seconds'], 'duration_seconds': candidate['duration_seconds']}
 
 
+def blend_schedule(plan,candidate):
+    overlap=plan.transitions[0].overlap_seconds;bpm=plan.excerpts[0].target_bpm
+    start=plan.excerpts[0].output_duration-overlap;seam=candidate['handoff_seconds']
+    fade=min(({32:8,16:4,8:2}[plan.transitions[0].bars])*240/bpm,overlap/3)
+    beat=60/bpm
+    return ({'outgoing_fade_start_seconds':seam-beat-fade,'outgoing_fade_duration_seconds':fade,
+        'incoming_fade_start_local_seconds':seam+beat-start,'incoming_fade_duration_seconds':fade,
+        'outgoing_curve':'qsin','incoming_curve':'hsin','vocal_eq':True,'semantic_phrase_detection':False},
+        {'groove_32':'long_groove','controlled_16':'controlled','eq_8':'standard'}[candidate['recipe']])
+
+
 def render_candidate(candidate, validation, sources, settings, storage, *, separate=separate_local):
     if validation['candidate_id'] != candidate['id'] or validation['status'] != 'validated':
         raise ValueError('A successful validation for this candidate is required')
@@ -188,13 +199,7 @@ def render_candidate(candidate, validation, sources, settings, storage, *, separ
                 run_audio([settings.ffmpeg, '-v', 'error', '-nostdin', '-i', stem['instrumental'], '-c:a', 'pcm_s16le', str(pcm)])
                 instruments.append(pcm)
             instrumental_checks = check_overlap_windows(*instruments, start, overlap, bpm)
-            fade = min(({32:8, 16:4, 8:2}[plan.transitions[0].bars])*240/bpm, overlap/3)
-            beat = 60/bpm
-            schedule = {'outgoing_fade_start_seconds': seam-beat-fade, 'outgoing_fade_duration_seconds': fade,
-                        'incoming_fade_start_local_seconds': seam+beat-start, 'incoming_fade_duration_seconds': fade,
-                        'outgoing_curve': 'qsin', 'incoming_curve': 'hsin', 'vocal_eq': True,
-                        'semantic_phrase_detection': False}
-            mode = {'groove_32':'long_groove', 'controlled_16':'controlled', 'eq_8':'standard'}[candidate['recipe']]
+            schedule,mode=blend_schedule(plan,candidate)
             phase = pulse_grid(instruments[0], start, min(30, overlap), 60/bpm)['phase_seconds']
             graph, recipe = stem_pair_graph(gains, first, second, overlap, bpm, phase, schedule, mode)
             recipe['instrumental_checks'] = instrumental_checks
@@ -236,13 +241,16 @@ def render_candidate(candidate, validation, sources, settings, storage, *, separ
     return report
 
 
-def evaluate_pair(batch, sources, settings, storage, *, audition_count=2, separate=separate_local):
+def evaluate_pair(batch, sources, settings, storage, *, audition_count=2, separate=separate_local,
+                  progress=None, live=None, rank=None):
     """Rank only waveform-valid proposals; preserve every rejection and snapshot."""
     if type(audition_count) is not int or not 0 <= audition_count <= 2 or len(batch['candidates']) > 12:
         raise ValueError('Use at most twelve proposals and zero to two auditions')
     store = CandidateStore(storage.root)
     valid, rejected = [], []
-    for candidate in batch['candidates']:
+    for index,candidate in enumerate(batch['candidates']):
+        if live and not live():raise ValueError('Comparison cancelled or worker lease lost')
+        if progress:progress(f'Checking candidate {index+1} of {len(batch["candidates"])}',.18+.32*index/max(1,len(batch['candidates'])))
         store.register(candidate)
         try:
             validation = validate_candidate(candidate, sources, settings, storage)
@@ -254,6 +262,7 @@ def evaluate_pair(batch, sources, settings, storage, *, audition_count=2, separa
         store.event(candidate['id'], 'validated', validation)
         valid.append((candidate, validation))
     valid.sort(key=lambda pair: (-pair[0]['context_score'], pair[0]['id']))
+    if rank:valid=rank(valid)
     reports, attempted = [], set()
     # Prefer distinct recipes; further cue alternatives remain available if one render fails.
     order = []
@@ -262,11 +271,13 @@ def evaluate_pair(batch, sources, settings, storage, *, audition_count=2, separa
             order.append(pair)
     order += [pair for pair in valid if pair not in order]
     for candidate, validation in order:
+        if live and not live():raise ValueError('Comparison cancelled or worker lease lost')
         if len(reports) >= audition_count:
             break
         if candidate['recipe'] in attempted and len({p[0]['recipe'] for p in valid}) >= audition_count:
             continue
         try:
+            if progress:progress(f'Rendering alternative {len(reports)+1} of {audition_count}; separating vocals and checking audio',.52+.16*len(reports))
             report = render_candidate(candidate, validation, sources, settings, storage, separate=separate)
             store.event(candidate['id'], 'audition', report)
             reports.append(report)
@@ -276,6 +287,8 @@ def evaluate_pair(batch, sources, settings, storage, *, audition_count=2, separa
             store.event(candidate['id'], 'rejected', payload)
             rejected.append({'candidate_id': candidate['id'], **payload})
     try:
+        if live and not live():raise ValueError('Comparison cancelled or worker lease lost')
+        if progress:progress('Matching playback loudness',.9)
         reports = match_auditions(reports, settings, storage)
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         rejected.extend({'candidate_id': r['candidate_id'], 'stage': 'loudness', 'reason': str(exc),

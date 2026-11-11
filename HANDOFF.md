@@ -1,5 +1,414 @@
 # Handoff — AI DJ Set Maker
 
+## Owner reports continuous handoff is better — 2026-11-12
+
+Owner listened to vocal-handoff-fdc44c762ab34ca8990521d1b53addc0 and said
+"its better". An immutable research listening review pins the exact audio/report
+hashes and records qualitative improvement. No score, explicit pairwise vote or
+full acceptance inferred; no app activation/training changes. Use this
+continuous vocal-protecting, gradual-intro version as the research reference for
+further work. Keep the rejected loop/filter/delay recipe disabled.
+
+## Continuous vocal handoff preview ready — 2026-11-12
+
+Owner approved letting the outgoing vocal finish and gradually introducing the
+incoming song before adding effects. Plan:
+`docs/superpowers/plans/2026-11-12-vocal-continuity-handoff.md`; usage:
+`docs/vocal-handoff.md`. Still At Night → Stupidisco, one isolated example.
+
+**http://127.0.0.1:8007/vocal-handoff-fdc44c762ab34ca8990521d1b53addc0/handoff.mp3**
+is the final 60s stereo preview, pending listening. Incoming starts quietly near
+22.38s and reaches only 25% gain at 30s. Outgoing stays at full fixed preparation
+gain until 30s; its last strong estimated vocal activity ends near 26.73s, giving
+a 3.25s source-time tail guard. Outgoing fades 30–37.62s while incoming rises
+25%→100%. Both sources remain continuous, with no loops, source jumps or effects.
+
+Moved outgoing fade to original 143.74788–151.30927s, a sustained quieter gap
+before the next vocal activity. Incoming overlap uses its opening 3.92–19.28s,
+instead of its vocal-heavy middle. MDX screen outgoing original 54s–end and
+incoming 0–120s, each within the separator's 180s bound. Vocal traces are derived
+from actual stems with checked source/model/context hashes and explicit offsets.
+No semantic phrase recognition or human cue labels claimed. Max predicted vocal
+ratios: .05562 throughout outgoing fade + guard, .09698 throughout incoming
+overlap (p95 .03577). Earlier rejected cut region 112.09–119.7s fails this gate.
+
+New research helper vocal_handoff.py validates continuous coverage and quiet
+intervals, and generates protected-outgoing/gradual-incoming envelopes. Renderer
+render_vocal_handoff.py checks the exact stretched sources and encoded mix.
+Early intro fitting is an explicit stable_spans option; existing callers retain
+35s leading-context behavior. Incoming's pre-file silence is padded explicitly
+while inaudible; all actual source samples thereafter play continuously. Float
+stereo preparation preserves peaks until gain staging.
+
+Verification: preparation 27/27 beats and 7/7 downbeats matched, six complete
+regular bars each; final outgoing/transition/incoming beat match fractions 1.0
+and final downbeat fraction 1.0. Protected line gain=1, smooth multi-bar incoming
+ramp, -20 LUFS, -4.46 dBTP, finite/format/dropout and HTTP SHA256 checks passed.
+45 focused tests OK, two native effects skips; native DSP tests were previously
+passed in their own unchanged runtime. Old reviewed/rejected files intact.
+No votes, app defaults or models changed. Earlier unshared f50e1f... pilot marked
+superseded. The rejected loop/filter/delay v1 remains disabled.
+
+## Loop effects rejected and v1 disabled — 2026-11-12
+
+Owner rejected loop-filter-delay-cdac3973477e4616b7866412cfc5cb6a: outgoing
+song cut during vocals, fade/loop ending bad, incoming cut abruptly. Immutable
+review `32e408fac724494bb7c7cc9f40f954b0` pins exact effect audio/report hashes
+under that folder's listening-reviews/. This does not reject the baseline or
+invent a pairwise vote. REJECTED.json and README show the effects verdict.
+
+Audit: at 22.3811s the effect replaces outgoing playback with a bar from 30.0s,
+skipping 7.6189s while vocals are active. MDX predicted vocal RMS is .0278–.0396
+in the surrounding half-second windows. Picking a quieter destination bar did
+not establish that the current vocal phrase had ended. Incoming ramp .005s is
+a click-prevention ramp, not a gradual musical entrance. Beat/bar agreement did
+not validate either of these musical decisions. These are recipe/planning errors.
+
+`alignment/loop-filter-delay-1/rejection-audit.json` records evidence. Local
+recipe-status.json marks v1 owner_rejected; scripts.render_loop_transition now
+fails before preparing or publishing anything if that recipe is unavailable.
+Keep original rejected media/reviews intact; no corrected effects audio exists.
+No new song pairs or further previews were generated, no votes/defaults changed.
+
+Before designing another version, establish actual outgoing phrase completion
+or a sufficiently continuous instrumental passage including the playback point,
+and a suitable incoming phrase/intro with a gradual overlap. RMS dips and bar
+boundaries alone are not semantic phrase evidence. Prefer preserving the current
+vocal line and source continuity over jumping to a lower-vocal future bar. The
+preceding corrected crossfade retains the owner's "its better" assessment.
+
+## Pedalboard loop/filter/delay preview ready — 2026-11-12
+
+Owner explicitly approved the loop → filter → beat-synced delay → bar-boundary
+release example. Plan `docs/superpowers/plans/2026-11-12-loop-filter-delay.md`;
+usage and reproduction `docs/loop-effects.md`. Owner described the preceding
+corrected crossfade as "its better"; no numeric rating or broad approval inferred.
+
+New preview: **http://127.0.0.1:8007/loop-filter-delay-cdac3973477e4616b7866412cfc5cb6a/loop-filter-delay.mp3**.
+Matched baseline in that folder: `crossfade.mp3`. Both 60s stereo, -19.99 LUFS,
+true peaks -7.70/-7.44 dBFS. Same source preparations and tempo as corrected pair.
+Loop starts 22.3811s, repeats one bar four times, filter sweeps 18k→600Hz,
+quarter-note delay 0.476181s with feedback .30 / send max .22 and 250Hz return
+highpass. Incoming releases at 30s, echo decays by 33.8095s. Float32 processing.
+
+New `pedalboard-runtime` under experiments/open-dj reads existing CPU packages
+without modifying them; pins Pedalboard 0.9.26 Windows cp312 wheel SHA256
+`816b7063d3befb00263bfee7656932ee5f51788c586d5184d4d61f7a85f61aea`.
+`scripts/setup_pedalboard.py` creates it. `scripts/render_loop_transition.py`
+verifies original/prepared/baseline hashes and creates fresh work/published dirs.
+`backend/app/research/loop_effects.py` owns deterministic DSP/control timeline.
+
+MDX vocal screening only selected the master-audio template; no separated stem
+is audible. Selected outgoing prepared bar 4 (30.0–31.9047s), predicted vocal
+RMS ratio .08461 versus .32–.44 in several nearby bars. Model leakage possible.
+Screen manifest is alignment/loop-filter-delay-1/vocal-screening.json.
+
+Sample-position loop repeats use 4ms seam crossfades without shortening periods.
+Filter state retained across 128-frame automation blocks. Native delay warmup and
+fixed 512-frame processing size preserve its state when caller chunk sizes vary;
+changing maximum native block size had lost an impulse in a regression test.
+Echo tail is explicitly flushed/decayed, RMS .002629 after release.
+
+Verification: independent beat/bar gate and actual loop-body checks passed;
+encoded outgoing/loop-release/incoming beat match fractions 1.0, transition
+downbeat match 1.0. Five real splice boundaries passed local discontinuity checks.
+All output finite/duration/stereo/peak/dropout and HTTP hash checks passed.
+40 focused app tests OK with two native-DSP skips; all five DSP tests pass in
+the isolated effects runtime. Syntax and diff checks passed. No votes/defaults/
+model promotion or commits. Existing ports 8005/8007 only. Listening pending.
+Earlier unshared loop pilot b07f4af442164e72be9915530240236a is marked superseded.
+
+## One corrected stereo crossfade ready — 2026-11-12
+
+Owner approved fixing At Night → Stupidisco only. Plan:
+`docs/superpowers/plans/2026-11-12-one-aligned-crossfade.md`. Full-original
+Beat This analysis saved in `experiments/open-dj/alignment/at-night-stupidisco-1/`
+under D:/AI-DJ-data. Full-track markers support nearby regular eight-bar spans.
+Fitted tempos 127.01288 / 125 BPM, target 126.00242. Corrected overlap source cues
+111.62050 / 121.04000 seconds, replacing 112.09295 / 120.10337. The old cues were
+roughly one and two beats after their corresponding predicted bar starts.
+
+New preview: **http://127.0.0.1:8007/corrected-at-night-stupidisco-f0096cf999294ce7b45e2b70dfba792b/corrected.mp3**.
+60s stereo; handoff 30s, linear overlap 22.3811–37.6189s. No separation/EQ/GAN.
+Prepare each source with 8s real context on both sides before cropping. Native
+float32 throughout preparation, constant gain staging, final MP3. Avoid PCM16
+clipping before normalization: initial pilot showed ~0.16–0.19% saturated samples
+and was superseded, marked with SUPERSEDED.json. Production prepare_excerpt is
+unchanged and its PCM16 preparation still merits a separate clipping fix.
+
+Independent analysis of the exact stretched sources: 27/27 beats and 7/7 downbeats
+match within declared tolerances, median offsets zero, beat p90 20ms. Six complete
+4/4 bars supported on each source; both local overlap halves pass. Encoded solo
+sections also retain their source beat timing. Encoding/finite/peak/dropout,
+stereo/duration and HTTP content hashes passed. 35 focused tests pass, including
+new marker-quantization tempo-fit and invalid/irregular evidence regressions.
+Reports include sources, applied settings, full marker predictions, provenance,
+technical checks and pending listening status. Old rejected audio/reviews intact.
+No defaults, training or owner votes changed. Await listening on this one preview;
+model timing checks do not prove phrase/vocal compatibility or musical quality.
+
+## Owner rejected follow-up; beat/bar audit blocks all three — 2026-11-12
+
+Owner: "what is this? none of them are good plus many of them dont even have
+matched beat and are off beat". All nine follow-up previews rejected, no named
+per-file timing failures invented. Immutable review ID
+`4bb313c1ab1840d4aec2ccc652364bb5` is saved in the batch and all pair folders'
+`listening-reviews/`, pinned to exact hashes. Prior Move/Say What acceptance stays.
+
+The earlier ready-for-listening/technical checks did not verify actual musical
+beat/bar alignment. No timelines existed for the six new tracks. Legacy bass
+pulse checks still pass every rejected pair, demonstrating that they are an
+insufficient gate. `scripts/audit_listening_timing.py` records this in timing-audit.
+Pinned independent Beat This audit (`scripts/audit_listening_beats.py`) detects
+~40ms median beat offset in A, and flags predicted bar mismatch in A/B/C; B/C
+beats themselves match within 25ms. Bar predictions are irregular on at least one
+source of each pair, so these are model flags, not verified bar truth. Do not
+blindly move cues by a beat or claim the actual mixes have been fixed.
+
+`backend/app/research/beat_alignment.py` compares markers symmetrically (missing
+beats cannot hide), validates regular 4/4 bar support, and fails closed. All three
+real rejected pairs are blocked by this independent gate. The research runner
+checks owner/test input beats+bars before rendering, records timing-check.json,
+and refuses to overwrite any reviewed folder. Example remains smoke-test-only.
+Existing app renderer is unchanged and still needs a dedicated alignment fix.
+32 focused tests pass, including half-beat, half-tempo, bar-phase, absent markers
+and irregular-bar failures. Research audit only; no new previews or promotion.
+
+Next work: establish reliable beat/downbeat/phrase evidence on actual originals
+with enough context (or explicit owner correction when uncertain), fix one join,
+then listen before another batch. Never equate a successful decode or a periodic
+bass-pulse fit with acceptable musical alignment.
+
+## Three additional listening comparisons ready — 2026-11-11
+
+Owner approved testing the simple crossfade on more pairs with GAN and the app
+as comparators. Plan: `docs/superpowers/plans/2026-11-11-multi-pair-listening.md`.
+Research-only helpers read successful published test jobs in SQLite read-only
+mode; pin applied cues, tempo, positions, overlap and originals; reject unsupported
+PCM delays and insufficient context. No app votes, models or rendering defaults
+were changed. Existing app comparator also differs in separation/gain processing.
+
+Session `D:/AI-DJ-data/experiments/open-dj/auditions/listening-batch-ae9f08aa6f4e4755995d33abc82fcfc8`
+is ready_for_listening, with session.json and README.md. Three pairs/six distinct
+source songs, excluding the earlier Move/Say What pair:
+
+- A: At Night → Stupidisco; folder `test-pair-6fe842b8e47940d3a67914b7740a46d6`.
+- B: Too Much For Me → Dreamer; folder `test-pair-340b3ca2f93b4bee8f38c6405fcbe1ea`.
+- C: Sauti → Fire Fire; folder `test-pair-c89d1ffe53ca4586b878432ca9a89b8b`.
+
+Each folder is served on existing 8007. Numbering: 1 existing-app.mp3,
+2 djtransgan.mp3, 3 linear.mp3. All 60s mono; handoff 30s; overlap near 22–38s.
+Within-pair LUFS: A -20.00, B -20.58/-20.59, C -21.36. All nine passed finite,
+duration, true/sample-peak and dropout checks; HTTP downloads match saved SHA256.
+No new listening choices yet: await owner feedback separately for A/B/C.
+28 focused research/interpreter/comparison tests passed, plus syntax/diff checks.
+The batch refuses to regenerate folders with saved listening reviews.
+
+## Development ports consolidated — 2026-11-11
+
+Owner asked why so many ports were running. Verified loopback listeners and exact
+AI-DJ serve command lines; no workflow jobs were running. Stopped only obsolete
+serve PIDs 9452/19476/352/11484 on 8000/8002/8003/8004. Rechecked: only app 8005
+(PID 8720) and benchmark file server 8007 (PID 21752) remain in 8000–8008; both
+respond 200. Earlier notes about keeping older servers are superseded. Use these
+existing services for further tests instead of opening more development ports.
+
+## Owner accepted both research alternatives on one pair — 2026-11-11
+
+Owner listened to the numbered links (1 existing-app, 2 DJtransGAN, 3 linear)
+and said: "2 and 3 are good and both are better then ones we have".
+Record only DJtransGAN > existing-app and linear > existing-app for these exact
+files; no preference or explicit tie between the two winners was supplied.
+An immutable JSON review in the benchmark audition folder's `listening-reviews/`
+pins the statement, two comparisons, audio hashes and benchmark report hash.
+This is research feedback, not fabricated ranker features or broad promotion.
+Existing app feedback remains separate. Earlier "listening pending" below is
+superseded for this one pair. No new product rendering mode was activated.
+
+Next technical direction: test a plain crossfade without source separation on
+additional distinct pairs before adding complexity. The existing-vs-linear
+comparison changes separation, EQ and fade handling together, so it cannot yet
+identify which individual component causes the worse sound. Keep DJtransGAN as
+the pretrained comparator; the owner has not chosen it over the simple baseline.
+
+## Open-source benchmark evidence — 2026-11-11
+
+Owner approved UnmixDB evaluation and isolated pretrained DJtransGAN inference.
+Usage/results: `docs/open-dj-benchmarks.md`; plan:
+`docs/superpowers/plans/2026-11-11-open-dj-benchmarks.md`.
+
+- Data/sources/runtime/reports: `D:/AI-DJ-data/experiments/open-dj`. Setup scripts
+  pin two upstream commits, verify official dataset checksum, reject unsafe ZIP
+  paths and repair interrupted extractions. Additional research dependencies are
+  installed only in a separate Python 3.12 venv; existing CPU packages read-only.
+- Frozen interpreter UnmixDB baseline: 11 good mixes, 22 oracle-timed fades from
+  only two distinct adjacent source pairs. Predictions: 20 unknown, one correct
+  gradual_blend, one incorrect eq_handoff. Accuracy 1/22; coverage 2/22. No tuning,
+  no owner labels or training writes; does not evaluate transition discovery.
+- DJtransGAN author checkpoint: SHA256
+  `495987d70bd873fb94838b3af705be85d368a6639659f2ffcc2b05a9740e8fd2`;
+  tensor-only load, 122 keys strictly matched, all tensors finite. Adapter copies
+  pinned source and removes only eager unused frontend/preprocessing imports;
+  executable originals checked against source archive. No random-weight fallback.
+- Published-example preflight and real I Move → F Say What pair rendered. Each
+  benchmark folder includes source/control/output hashes and runtime provenance.
+  Owner pair uses existing job `9f3958001f11492f8df9200868c44877` alternative A's
+  cues/tempo/overlap. Three 60-second mono previews: pretrained, exact-input linear
+  crossfade, existing app controlled/stem render. Handoff 30s, overlap 14–46s,
+  matched ~-21.33 LUFS, no clipping or 100ms near-silent blocks. Mono is explicit;
+  preprocessing is our adapter, not exact author madmom replication.
+- Listen at **http://127.0.0.1:8007/owner-pair-9f3958001f11492f8df9200868c44877/**.
+  Isolated standard-library file server exec session 64720 serves only audition
+  artifacts, no votes; existing app remains on 8005. Listening acceptance pending,
+  no default promotion. Existing app comparator also differs in source separation.
+- Validation: 27 focused research, interpreter and pair-comparison tests passed;
+  both real inference runs passed audio checks; repeated inference reproduced
+  identical output hashes. Five new tests cover truth/speed mapping, missing or
+  corrupted weights, unsafe archives and partial extraction. HTTP audio/index and
+  existing Compare responded 200. Tempo preparation at 0.96/1.04 also preserved
+  one-second duration and a 1kHz test tone. No commits or benchmark feedback writes.
+- Latest read-only owner-feedback audit: five feedback events and two audition
+  reviews, both currently B (including the earlier real comparison). Preserve
+  these choices. Earlier pair-section counts/unvoted status describe its original
+  completion, not the current state. The research baseline explicitly uses that
+  job's first/A alternative; it does not represent an owner-selected winner.
+
+## Pair listening shipped locally — 2026-11-11
+
+Owner approved the one-pair matched-comparison milestone after reporting poor
+generated transitions. Implementation plan:
+`docs/superpowers/plans/2026-11-11-pair-listening.md`; usage:
+`docs/pair-listening.md`. Current final app: **http://127.0.0.1:8005/compare**.
+Managed server exec session 80553, Python PID 8720 at completion. Older ports
+retain earlier code; use 8005 for Compare. Restarted only the managed test server
+through its own exec session; no existing older server was killed.
+
+- `/compare` selects two registered sources and runs durable `pair_audition` jobs.
+  Existing timeline revisions and optional preference model are pinned. Missing
+  timelines are analyzed in the heavy worker. Up to twelve contextual candidates
+  receive waveform checks; two distinct recipes/cues render via existing stem
+  handling and common loudness matching. Both previews must succeed to publish.
+- A/B players support same-position switching, handoff seek and exclusive playback.
+  Polling retains audio nodes. A/B/tie/neither and optional reasons persist with
+  revision conflicts. Compare navigation and phone header wrapping are shared.
+- Preference ranker v2 adds candidate energy/harmonic/embedding/vocal/trend features
+  with unknown masks; legacy vectors pad to the new dimensions without rewriting
+  reports. Descriptor/render features matched exactly on both real previews.
+  Explicit learned ranking pins its snapshot and requires the existing six
+  distinct comparisons / three song pairs minimum. No automatic promotion.
+- Tie/neither preserve history and revoke any previous pairwise winner; ratings
+  cannot manufacture a replacement after a neutral choice. Neither makes the next
+  job for those ordered source hashes skip the two explicitly rejected candidate
+  IDs. No unplayed alternatives are labeled bad. Old feedback is preserved.
+- Schema 9 allows pair_audition jobs, preserving prior jobs/model foreign keys.
+  Feedback stays in the existing separate preferences SQLite database; per-job
+  review revisions are transactional with feedback events. Media and feedback
+  verify successful publication and immutable audio hashes. Cancelled jobs cannot
+  expose previews. Comparison history is independent of other job kinds.
+- Real job `9f3958001f11492f8df9200868c44877`: I Move (Lyrics) -> F Say What;
+  alternative A controlled_16, B eq_8; both 128 seconds, handoff at 64 seconds,
+  matched -20.00/-20.01 LUFS. Available and **unvoted** for owner listening.
+  Rendering does not establish that either version sounds good.
+- Validation: full suite 134 tests OK, four isolated-runtime skips. After adding
+  the explicit-neither candidate exclusion, all eight comparison tests passed.
+  Browser: 19 checks passed, including real playback/switching, all four feedback
+  choices, reload, conflicts, node preservation and 390/1440 widths/navigation.
+  Browser votes were written ONLY to a copied database under
+  `D:/AI-DJ-data/tmp/comparison-browser-fixture`, served temporarily on 8006.
+  Owner feedback still has exactly one original event and zero fixture labels.
+  Evidence: `.impeccable/review/compare`; suite log:
+  `D:/AI-DJ-data/tmp/pair-listening-suite.log`. App DB backup before migration:
+  `D:/AI-DJ-data/tmp/before-pair-comparison.sqlite3`.
+- No commits, pushes, public hosting, new dependencies or owner listening labels.
+
+## Owner's three-stage architecture — 2026-11-11
+
+Owner specified separate transition parsing, behavior interpretation and learning
+for new sets. Target architecture and implementation/acceptance sequence:
+`docs/superpowers/plans/2026-11-11-three-stage-learning.md`.
+The existing matcher/interpreter/cue model are baselines, not three finished ML
+models. Preserve the distinction. Stage 2 needs per-observation structured
+outputs rather than forcing everything into the renderer's four preset names;
+stage 3 learns from those supported fields, not generated prose. Human correction
+and inference provenance remain separate. This turn records architecture only;
+no new trained models, parser replacement or product-code implementation claimed.
+
+## Recognition correction — 2026-11-11
+
+Owner correctly reported that completed analysis jobs were not useful recognition.
+The original baseline produced zero types. Replaced power-additive fitting with
+linear magnitudes and added bounded before-entry/after-exit context. Boundary gain
+summaries now use a fixed short window rather than 20% of the entire overlap,
+which could hide a hard exit. No confidence thresholds were loosened.
+
+- Current analyzer: `transition-magnitude-context-3`. Exact source/review identity,
+  stale handling, immutable human fields and high-evidence training gate persist.
+- Live final app: **http://127.0.0.1:8004/references**. Earlier servers on 8000,
+  8002 and 8003 retain old Python modules; use 8004 for current results. Previous
+  environment rejection prevented stopping those servers. New worker rejects old
+  algorithm requests explicitly instead of silently applying a different version.
+- Real batch `696a50a0a52b4fbabf6358e177fe2165`: 26 processed, 6 written technique
+  estimates (EQ handoff / gradual blend), 20 uncertain, **0 training labels**.
+  Estimates are moderate, not human-confirmed or proven accurate. Do not claim
+  style learning is solved. No owner model was trained during this correction.
+- UI shows three measured band observations when supported and explicit result
+  counts on References and Learning; prior analyzer jobs are identified as older
+  results. Backend analyses never populate the human style selector.
+- Verification: final 31 related tests passed, including all 14 analyzer tests
+  covering hard-exit context, wrong/missing sources, actual decoding and
+  version-request guards. Eight browser checks passed against saved
+  real results, with 390/1440 screenshots under
+  `.impeccable/review/transition-analysis/recognition-v3-*`.
+- Read-only diagnostic CLI: `scripts/local.ps1 -m scripts.diagnose_transition_analysis`.
+  It compares saved versus alternative mappings without changing reviews.
+- An earlier development batch was cancelled before publication after the
+  boundary-window test exposed a remaining defect. Its cancellation is truthful
+  history. Final batch above succeeded. No commits or pushes.
+
+## Automatic transition descriptions — 2026-11-11
+
+Owner approved a local analyzer so they can correct timing without knowing the
+transition technique. Usage: `docs/transition-analysis.md`; plan:
+`docs/superpowers/plans/2026-11-11-transition-analysis.md`.
+
+- References now has Analyze transition / Analyze reviewed transitions, written
+  descriptions, heuristic evidence, provenance, background progress/cancel/retry.
+  Saved complete timing drafts can be inspected individually; only completed,
+  included reviews can enter training. Saved human fields are never overwritten.
+- Algorithm `transition-subband-2`: nonnegative per-band spectral attribution,
+  bounded offset refinement, fit/conditioning/support gates; gradual and EQ
+  handoffs, plus surrounding-audio verification for cuts. Renderer recipe mapping
+  requires supported technique and bar duration; short marked timing alone cannot
+  prove a cut. This is an uncalibrated spectral baseline, not a general audio AI.
+- Schema 8 preserves old jobs/models while allowing transition_analysis jobs.
+  Immutable successful results pin review revision, decision/source/recording
+  hashes and implementation provenance. Cancellation fences publication; stale
+  estimates cannot supply current labels. Human exports remain human-only.
+- Training separately enriches unknown styles from supported high-evidence
+  estimates at weight 0.35. Human styles win. Reports separate human accuracy from
+  automatic-label agreement. No actual owner model was trained or promoted.
+- Real included-review batches and a single-transition UI job completed. The
+  current recordings/cues did not yield any supported automatic recipe labels;
+  retain unknown rather than claiming technique recognition worked. In particular
+  the first reviewed outgoing interval implies about 18% slowdown versus its
+  marked recording interval and is explicitly flagged. Other poor fits can mean
+  cue/version mismatches or effects outside the baseline. Do not loosen confidence
+  gates just to fill labels. Further accuracy needs validated alignments/evaluation.
+- Verification: full suite 124 tests OK, 4 runtime-specific skips; isolated CPU
+  style-supervision test passed separately. Five workflow/provenance tests passed
+  after final guards. Browser: 16 checks passed including actual single/batch jobs,
+  unknown-label preservation, dirty protection and 390/768/1440 widths. Evidence:
+  `.impeccable/review/transition-analysis`. DB backed up before live migration to
+  `D:/AI-DJ-data/tmp/before-transition-analysis-20261111-203750.sqlite3`.
+- Root `python run.py` starts the app with the existing venv and local D: settings;
+  earlier long-form PowerShell startup still works. No commits or pushes made.
+- Updated live app for this session: **http://127.0.0.1:8003/references**. The
+  environment blocked stopping the existing 8000 server, so it was left alone;
+  8002 is the earlier verification instance. New 8003 serves final code, sharing
+  the same saved reviews. Its logs are `D:/AI-DJ-data/tmp/analysis-updated-server.*.log`.
+  Save edits in any older tab before switching. The ordinary launcher still
+  defaults to 8000 for future starts when that port is free.
+
 ## Training and test mixes from the UI — 2026-11-08
 
 Owner requested completing review → training → test mixes with buttons, without

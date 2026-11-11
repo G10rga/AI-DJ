@@ -35,6 +35,12 @@ with the same active request reuse that job instead of starting duplicate work.
 
 ## What this model learns
 
+After using [transition analysis](transition-analysis.md), supported high-evidence
+automatic styles can fill unknown style targets at lower weight. Human labels
+take precedence. Counts and model reports distinguish the two origins; automatic
+agreement is not a human accuracy measurement. Analysis never edits your reviews
+or starts training on its own.
+
 This supervised model predicts the reviewed source cue positions and overlap
 duration, with a separate style head for known recipe labels. It uses fixed
 spectral source descriptors and a small CPU PyTorch network in the existing

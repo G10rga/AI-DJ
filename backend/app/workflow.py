@@ -38,15 +38,16 @@ class Workflow:
         return result if internal else [{k:v for k,v in r.items() if k!='path'} for r in result]
 
     def readiness(self, draft_id):
-        exported=self.reviews.export(draft_id)
+        exported=self.training_export(draft_id)
         batch=self.reviews.batch(draft_id)
         return {'draft_id':draft_id,'title':batch['title'],'counts':batch['counts'],
                 'examples':len(exported['examples']),'style_examples':exported['style_examples'],
+                'automatic_style_examples':sum('automatic_style' in e for e in exported['examples']),
                 'can_train':len(exported['examples'])>=2,
                 'review_fingerprint':hashlib.sha256(canonical(exported).encode()).hexdigest()}
 
     def enqueue_train(self,draft_id):
-        exported=self.reviews.export(draft_id)
+        exported=self.training_export(draft_id)
         if len(exported['examples'])<2:
             raise ValueError('Include at least two completed listening reviews before training')
         fingerprint=hashlib.sha256(canonical(exported).encode()).hexdigest()
@@ -58,6 +59,74 @@ class Workflow:
                                            if s['content_hash']==row['decision'][key]))
         exported['review_fingerprint']=fingerprint
         return self.enqueue('train',{'draft_id':draft_id,'snapshot':exported})
+
+    def analysis_state(self, draft_id):
+        from .transition_analysis import VERSION
+        batch=self.reviews.batch(draft_id)
+        current={t['position']:t for t in batch['transitions']}
+        with self.db.connection() as c:
+            jobs=c.execute("SELECT id,status,stage,progress,error,result_json,payload_json FROM workflow_jobs WHERE kind='transition_analysis' ORDER BY rowid").fetchall()
+        analyses={}; relevant=[]
+        for job in jobs:
+            payload=json.loads(job['payload_json'])
+            if payload['draft_id']!=draft_id:continue
+            job_result=json.loads(job['result_json']) if job['result_json'] else {}
+            relevant.append({**{k:job[k] for k in ('id','status','stage','progress','error')},
+                'summary':job_result.get('summary'),
+                'outdated':job_result.get('algorithm_version') not in (None,VERSION)})
+            if job['status']!='succeeded' or not job['result_json']:continue
+            for result in json.loads(job['result_json']).get('analyses',[]):
+                if result['algorithm_version']!=VERSION:continue
+                row=current.get(result['position'])
+                if not row:continue
+                item={**result,'job_id':job['id']}
+                item['stale']=(row['revision']!=result['review_revision'] or
+                    hashlib.sha256(canonical(row['review']).encode()).hexdigest()!=result['decision_hash'])
+                if item['stale'] and str(result['position']) in analyses and not analyses[str(result['position'])]['stale']:
+                    continue
+                analyses[str(result['position'])]=item
+        return {'analyses':analyses,'jobs':list(reversed(relevant))[:10]}
+
+    def training_export(self, draft_id):
+        exported=self.reviews.export(draft_id)
+        analyses=self.analysis_state(draft_id)['analyses']
+        for example in exported['examples']:
+            estimate=analyses.get(str(example['position']))
+            if (example['decision'].get('recipe') is None and estimate and not estimate['stale']
+                    and estimate.get('training_eligible') and estimate['confidence']=='high'):
+                example['automatic_style']={k:estimate[k] for k in
+                    ('recipe','confidence','algorithm_version','job_id','review_revision','source_hashes',
+                     'recording_hash','decision_hash','label_origin','human_confirmed')}
+        exported['style_examples']=sum(e['decision'].get('recipe') is not None or 'automatic_style' in e for e in exported['examples'])
+        return exported
+
+    def enqueue_analysis(self, draft_id, position=None, expected_revision=None):
+        from .transition_analysis import VERSION
+        batch=self.reviews.batch(draft_id)
+        if position is not None and (type(position) is not int or not 0<=position<len(batch['transitions'])):
+            raise ValueError('Choose a valid transition')
+        if position is not None and type(expected_revision) is not int:
+            raise ValueError('Specify the saved review revision')
+        imported=self.reviews.references.get(batch['reference_id'])['import']
+        examples=[]
+        for row in batch['transitions']:
+            if position is not None and row['position']!=position:continue
+            if position is not None and row['revision']!=expected_revision:
+                raise ValueError('This review changed; reload saved reviews before analyzing')
+            review=row['review']
+            complete=review and all(review.get(k) is not None for k in
+                ('mix_start','mix_end','outgoing_source_in','outgoing_source_out','incoming_source_in','incoming_source_out','outgoing_hash','incoming_hash'))
+            if not complete:
+                if position is not None:raise ValueError('Save entry, exit and both original-song cue intervals before analyzing')
+                continue
+            if position is None and not (review.get('reviewed') and review.get('learn')):continue
+            sources=[next(s for s in imported['tracks'][row['position']+i]['sources'] if s['content_hash']==review[key])
+                     for i,key in enumerate(('outgoing_hash','incoming_hash'))]
+            examples.append({'position':row['position'],'review_revision':row['revision'],'decision':review,'sources':sources})
+        if not examples:raise ValueError('No completed included transitions are ready to analyze')
+        return self.enqueue('transition_analysis',{'draft_id':draft_id,'snapshot':{
+            'draft_id':draft_id,'reference_id':batch['reference_id'],'recording_hash':batch['recording_hash'],
+            'algorithm_version':VERSION,'examples':examples}})
 
     def enqueue_test(self, model_id, track_ids, seconds=72, baseline=False):
         if type(baseline) is not bool or type(seconds) not in (float,int) or not 30<=seconds<=240:
@@ -179,6 +248,8 @@ class Workflow:
             if row is None or row['status']!='running' or row['owner']!=owner:return False
             lease=c.execute("SELECT owner,expires FROM workflow_leases WHERE name='heavy-worker'").fetchone()
             if not lease or lease['owner']!=owner or lease['expires']<time.time():return False
+            if status=='succeeded' and row['cancel_requested']:
+                status='cancelled';result=None;error='Cancelled by owner'
             if status=='succeeded' and row['kind']=='train':
                 model=result['model'];path=(self.storage.root/'models'/model['storage_name']).resolve()
                 if not path.is_relative_to((self.storage.root/'models').resolve()) or sha256(path/'manifest.json')!=model['manifest_hash']:

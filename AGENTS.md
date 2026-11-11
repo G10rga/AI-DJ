@@ -1,5 +1,47 @@
 # Agent instructions — ai-dj-set
 
+## Deterministic loop effects preview (2026-11-12)
+
+Owner rejected loop/filter/delay v1: outgoing vocal cutoff and abrupt incoming
+entry. It is disabled in the research runner. Preserve the rejection and do not
+rerun or promote that recipe. Any replacement needs an actual phrase-aware plan;
+a low-vocal destination bar does not prove the ongoing vocal phrase has ended,
+and a click-safe 5ms ramp does not constitute a gradual musical entrance.
+
+Owner explicitly approved one loop → filter → beat-synced delay → bar-boundary
+release experiment using Pedalboard on the corrected At Night / Stupidisco pair.
+Plan: `docs/superpowers/plans/2026-11-12-loop-filter-delay.md`. Preserve corrected
+baseline and all reviewed artifacts, timing gates, float/stereo processing,
+isolated dependency runtime and exact effect-control provenance. No automatic
+default activation, new training labels or generative-waveform model scope.
+
+## External benchmarks (2026-11-11)
+
+Owner approved UnmixDB evaluation and isolated pretrained DJtransGAN inference.
+This is an explicit exception for an experimental learned fader/EQ generator,
+not default mixer promotion or training new learned curves. Follow
+`docs/superpowers/plans/2026-11-11-open-dj-benchmarks.md`. Preserve owner labels
+and runtimes; require verified artifacts and strict tensor-only model loading.
+
+## Pair listening (2026-11-11)
+
+Owner approved contextual matched A/B auditions and listening-based preference
+learning. `/compare` owns generate/cancel/retry/play/switch/A/B/tie/neither.
+See `docs/pair-listening.md`. Preserve neutral decisions, legacy feedback,
+source/timeline/model provenance and the explicit experimental ranking opt-in.
+Neither excludes only those explicitly rejected candidate IDs for that ordered
+pair. Never save test votes in owner data or claim technical checks prove taste.
+
+## Automatic transition analysis (2026-11-11)
+
+Owner approved local technique inference from reference transitions and originals.
+See `docs/transition-analysis.md` and the 2026-11-11 implementation plan. Automatic
+style estimates are distinct from human reviews, pinned to exact revisions and
+hashes, abstaining on uncertain fits. Supported high-evidence estimates may fill
+unknown training styles at lower weight; human labels take precedence. Do not
+rewrite saved reviews or treat automatic-label agreement as human accuracy.
+This extends style supervision only, not learned waveform/EQ rendering.
+
 ## Read first
 
 1. [HANDOFF.md](HANDOFF.md) — current state and open questions  

@@ -11,7 +11,7 @@
   <script src="/assets/references.js" defer></script>
 </head>
 <body>
-  <header class="shell"><a href="/" class="brand" aria-label="AI-DJ home"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 17V11M9 23V5M15 27V1M21 20V8M27 17V11"/></svg>AI-DJ</a><nav class="page-nav" aria-label="Main navigation"><a href="/mixes">Mixes</a><a href="/timelines">Timelines</a><a href="/references" aria-current="page">References</a><a href="/learning">Learning</a></nav><span class="local">Local library</span></header>
+  <header class="shell"><a href="/" class="brand" aria-label="AI-DJ home"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 17V11M9 23V5M15 27V1M21 20V8M27 17V11"/></svg>AI-DJ</a><nav class="page-nav" aria-label="Main navigation"><a href="/mixes">Mixes</a><a href="/timelines">Timelines</a><a href="/references" aria-current="page">References</a><a href="/learning">Learning</a><a href="/compare">Compare</a></nav><span class="local">Local library</span></header>
   <main id="reference-page">
     <aside aria-label="Reference review queue">
       <label for="reference-select">Reference mix</label>
@@ -43,6 +43,16 @@
           </div>
           <fieldset class="decision-fields"><legend>What should the model learn?</legend><div class="decision-grid"><label>Use this transition?<select id="learn"><option value="">Choose after listening</option><option value="include">Include for learning</option><option value="exclude">Exclude from learning</option></select></label><label>Transition style<select id="recipe"><option value="">Unknown / leave unlabeled</option><option value="groove_32">32-bar groove blend</option><option value="controlled_16">16-bar controlled blend</option><option value="eq_8">8-bar EQ handoff</option><option value="cut">Cut</option><option value="other">Other</option></select></label><label>Overlap bars, if known<input id="overlap_bars" type="number" min="0" max="512" step="any" placeholder="Unknown"></label></div><div class="observation-grid"><label>Vocal behavior, if known<input id="vocal_behavior" type="text" maxlength="500" placeholder="Leave blank if unsure"></label><label>Energy behavior, if known<input id="energy_behavior" type="text" maxlength="500" placeholder="Leave blank if unsure"></label></div><label class="note-label">Review note<input id="review-note" type="text" maxlength="2000" placeholder="Anything to preserve about this handoff"></label><label class="review-checkbox"><input id="listened" type="checkbox">I reviewed this handoff by listening.</label><div class="review-actions"><button id="save-review" type="submit" class="primary" disabled>Save review</button><button id="discard-review" type="button" disabled>Discard edits</button><button id="next-transition" type="button">Next transition</button><span id="edit-state" class="muted">No listening review saved</span></div></fieldset>
         </form>
+        <section class="transition-analysis" aria-labelledby="analysis-heading">
+          <h2 id="analysis-heading">What happens in this transition?</h2>
+          <p class="section-help">Leave transition style unknown if you are unsure. Local audio analysis can estimate the technique from the recording and both originals.</p>
+          <div class="review-actions"><button id="analyze-transition" type="button">Analyze transition</button><button id="analyze-reviewed" type="button">Analyze reviewed transitions</button></div>
+          <p id="analysis-description" role="status" aria-live="polite">Save your timing and original-song cues before analyzing.</p>
+          <ul id="analysis-observations" hidden aria-label="Measured transition behavior"></ul>
+          <p id="analysis-confidence" class="muted"></p>
+          <details id="analysis-evidence" hidden><summary>Analysis evidence and limits</summary><p id="analysis-quality"></p><p id="analysis-limits"></p><p id="analysis-provenance" class="muted"></p></details>
+          <div id="analysis-jobs" aria-label="Transition analysis jobs"></div>
+        </section>
         <details class="alignment-evidence"><summary>Source match evidence</summary><p>Raw spectral similarity helps locate the handoff. It does not establish audible fade boundaries or musical quality.</p><div class="evidence-legend"><span class="outgoing-key">Outgoing source</span><span class="incoming-key">Incoming source</span></div><svg id="match-chart" viewBox="0 0 800 160" role="img" aria-label="Source similarity near the estimated handoff"></svg><p id="evidence-caption"></p></details>
       </div>
     </section>

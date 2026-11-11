@@ -1,5 +1,6 @@
 """Supervised source cues/overlap and masked style labels from reviewed decisions."""
 import json
+import hashlib
 import math
 from pathlib import Path
 from importlib.metadata import version
@@ -44,12 +45,30 @@ def dataset_from_snapshot(snapshot, references, progress=None):
         if not all(math.isfinite(v) and 0 <= v <= 1.000001 for v in target):
             raise ValueError('Reviewed source cues are outside their original audio')
         style = decision.get('recipe')
+        origin = 'human' if style in STYLES else 'unknown'
+        estimate = example.get('automatic_style')
+        if style is None and estimate:
+            if (estimate.get('confidence') != 'high' or estimate.get('human_confirmed') is not False
+                    or estimate.get('label_origin') != 'automatic_spectral_estimate'
+                    or estimate.get('review_revision') != example['review_revision']
+                    or estimate.get('decision_hash') != hashlib.sha256(canonical(decision).encode()).hexdigest()
+                    or estimate.get('recording_hash') != snapshot['recording_hash']
+                    or estimate.get('source_hashes') != [s['content_hash'] for s in pair]):
+                raise ValueError('Automatic style provenance does not match this reviewed example')
+            style = estimate.get('recipe')
+            if style in STYLES:
+                origin = 'automatic_spectral_estimate'
         rows.append({'position': example['position'], 'review_revision': example['review_revision'],
                      'source_hashes': [s['content_hash'] for s in pair], 'durations': [a,b],
                      'x': sources[pair[0]['content_hash']]+sources[pair[1]['content_hash']],
-                     'y': target, 'style': STYLES.index(style) if style in STYLES else -1})
+                     'y': target, 'style': STYLES.index(style) if style in STYLES else -1,
+                     'style_origin': origin, 'style_weight': .35 if origin == 'automatic_spectral_estimate' else 1.})
     if len(rows) < 2:
         raise ValueError('Include at least two completed listening reviews before training')
+    if any(r['style_origin']=='automatic_spectral_estimate' for r in rows):
+        recording=references.get(snapshot['reference_id'])['import']['recording']
+        if sha256(Path(recording['path']))!=snapshot['recording_hash']:
+            raise ValueError('Reference recording changed since automatic style analysis')
     return {'version': VERSION, 'snapshot': snapshot, 'rows': rows,
             'feature_config': {'version': 'global-centered-spectrum-1', 'bands': 32,
                                'per_source': 'mean/std and log duration', 'dimensions': 130},
@@ -113,7 +132,8 @@ def fit(dataset, destination, *, epochs=300, seed=11):
         cues, styles = model(tx)
         loss = torch.nn.functional.mse_loss(cues[train],ty[train])
         if known:
-            loss = loss+.05*torch.nn.functional.cross_entropy(styles[known],labels[known])
+            weights=torch.tensor([rows[i].get('style_weight',1.) for i in known])
+            loss = loss+.05*(torch.nn.functional.cross_entropy(styles[known],labels[known],reduction='none')*weights).mean()
         if not torch.isfinite(loss):
             raise ValueError('Training produced non-finite loss')
         loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(),1.); optimizer.step()
@@ -128,20 +148,26 @@ def fit(dataset, destination, *, epochs=300, seed=11):
             return None
         truth=y[indices]; actual=predicted[indices]
         durations=np.array([[rows[i]['durations'][0]]*2+[rows[i]['durations'][1]]*2 for i in indices])
-        labeled=[i for i in indices if rows[i]['style'] in supported]
+        labeled=[i for i in indices if rows[i]['style'] in supported and rows[i].get('style_origin','human')=='human']
+        automatic=[i for i in indices if rows[i]['style'] in supported and rows[i].get('style_origin')=='automatic_spectral_estimate']
         return {'examples':len(indices), 'cue_mae_seconds':float(np.mean(abs(actual[:,:4]-truth[:,:4])*durations)),
                 'overlap_mae_seconds':float(np.mean(abs(np.expm1(actual[:,4]*math.log(129))-np.expm1(truth[:,4]*math.log(129))))),
                 'normalized_mse':float(np.mean((actual-truth)**2)),
                 'mean_baseline_mse':float(np.mean((target_mean-truth)**2)),
                 'style_accuracy':float(np.mean([style_prediction[i]==rows[i]['style'] for i in labeled])) if labeled else None,
-                'evaluated_style_examples':len(labeled)}
+                'evaluated_style_examples':len(labeled),
+                'automatic_style_agreement':float(np.mean([style_prediction[i]==rows[i]['style'] for i in automatic])) if automatic else None,
+                'automatic_style_examples':len(automatic)}
     report={'version':VERSION,'status':'experimental','active':False,'examples':len(rows),
             'style_examples':sum(r['style']>=0 for r in rows),'trained_style_examples':len(known),
+            'human_style_examples':sum(r['style']>=0 and r.get('style_origin','human')=='human' for r in rows),
+            'automatic_style_examples':sum(r['style']>=0 and r.get('style_origin')=='automatic_spectral_estimate' for r in rows),
             'train':metrics(train),'evaluation':metrics(split['evaluation']), 'split':split,
             'trace':trace,'listening_approval':False,
             'limitations':['Single reference set; no independent reference-set test.',
                            'Small-sample cue/style imitation does not establish musical improvement.',
-                           'Unlabeled styles are masked. Excluded and pending reviews are not training examples.']}
+                           'Unlabeled styles are masked. Excluded and pending reviews are not training examples.',
+                           'Automatic spectral labels have weight 0.35; agreement with them is not human style accuracy.']}
     destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
     torch.save(model.state_dict(),destination/'checkpoint.pt')
     config={'version':VERSION,'mean':mean.tolist(),'scale':scale.tolist(),'supported_styles':supported,

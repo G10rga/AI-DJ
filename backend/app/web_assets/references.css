@@ -5,3 +5,10 @@
 @media(max-width:650px){.page-nav{gap:14px}.page-nav a{font-size:13px}.shell{gap:16px}.brand{font-size:16px;gap:6px}.brand svg{width:24px}#transition-list{max-height:160px;margin-top:12px}.queue-summary{margin:12px 0}#reference-page aside>label{margin-top:8px}#reference-page .workspace{margin-top:24px}#reference-page .title-row{flex-direction:row;align-items:flex-start;gap:12px}#reload-reference{font-size:11px;max-width:94px;padding:8px;line-height:1.5}.pair-heading h2{font-size:16px}.reference-transport{gap:8px}.reference-transport button{font-size:12px}.decision-grid{grid-template-columns:1fr}.decision-grid>label:last-child{grid-column:auto}.export-link{margin-top:14px}.review-actions{gap:10px}.review-actions button{font-size:13px}.recording-times{gap:12px}.source-times{gap:12px}fieldset{margin-top:24px}}
 #queue-panel>summary{display:none}#queue-panel>label{display:block;font-size:13px;margin:10px 0 8px}@media(max-width:1100px){.source-columns{grid-template-columns:1fr;gap:0}}@media(max-width:760px){#queue-panel>summary{display:list-item;margin:16px 0;font-size:14px}#review-form input:not([type=checkbox]),#review-form select{font-size:16px}}
 .learning-link{display:inline-block;font-size:13px;margin-top:12px}@media(max-width:650px){.shell{gap:12px}.page-nav{gap:10px}}
+.transition-analysis { margin-top: 28px; padding-top: 24px; border-top: 1px solid #252525; }
+.transition-analysis h2 { margin: 0 0 12px; }
+.transition-analysis p { max-width: 75ch; overflow-wrap: anywhere; }
+.transition-analysis details { margin: 16px 0; }
+.transition-analysis summary { cursor: pointer; }
+.analysis-job { margin-top: 16px; }
+.analysis-job progress { display: block; max-width: 100%; margin-bottom: 10px; accent-color: #c6f24e; }

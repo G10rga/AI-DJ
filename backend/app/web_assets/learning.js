@@ -51,6 +51,8 @@ function renderModel(){
     `Held-out error ${evaluation.normalized_mse<evaluation.mean_baseline_mse?'beat':'did not beat'} the average-choice baseline on ${evaluation.examples} transition${evaluation.examples===1?'':'s'}. Listening is still needed.`:
     'Training finished. There are not enough source-disjoint examples for evaluation yet.';
   const metrics=[['Training transitions',report.train.examples],['Held-out transitions',evaluation?.examples??'Unavailable'],
+    ['Human style labels',report.human_style_examples??report.style_examples],
+    ['Automatic style estimates',report.automatic_style_examples??0],
     ['Held-out cue error',evaluation?`${evaluation.cue_mae_seconds.toFixed(1)} seconds`:'Unavailable'],
     ['Held-out overlap error',evaluation?`${evaluation.overlap_mae_seconds.toFixed(1)} seconds`:'Unavailable'],
     ['Independent reference-set test','Unavailable'],['Model use','Experimental tests only']];
@@ -71,7 +73,7 @@ function renderJobs(){
       const result=document.createElement('div');result.className='job-result';row.append(result);jobNodes.set(job.id,row);
     }
     if(container.children[index]!==row)container.insertBefore(row,container.children[index]||null);
-    row.querySelector('h3').textContent=job.kind==='train'?`Train on ${job.payload.examples} included transitions`:
+    row.querySelector('h3').textContent=job.kind==='pair_audition'?`Compare transitions · ${job.payload.song_names.length} songs`:job.kind==='transition_analysis'?`Analyze ${job.payload.examples} transitions`:job.kind==='train'?`Train on ${job.payload.examples} included transitions`:
       `${job.payload.baseline?'Baseline':'Model test mix'} · ${job.payload.song_names.length} songs`;
     const pinnedModelId=job.payload.model_id||job.result?.model_id;
     const modelIndex=state.models.findIndex(model=>model.id===pinnedModelId);
@@ -99,7 +101,13 @@ function renderJobs(){
     const result=row.querySelector('.job-result');
     if(job.status==='succeeded'&&!result.dataset.ready){
       result.dataset.ready='true';
-      if(job.result?.audio_url){
+      if(job.kind==='pair_audition'){
+        const compare=text('a','Listen to A/B and save your preference');compare.href='/compare';result.append(compare);
+      }else if(job.result?.summary&&job.kind==='transition_analysis'){
+        const summary=job.result.summary;
+        result.append(text('p',`${summary.processed} analyzed · ${summary.recognized} techniques described · ${summary.training_labels} training labels · ${summary.uncertain} uncertain`,'help'));
+        const review=text('a','Read transition descriptions');review.href='/references';result.append(review);
+      }else if(job.result?.audio_url){
         const audio=document.createElement('audio');audio.controls=true;audio.preload='metadata';audio.src=job.result.audio_url;
         audio.setAttribute('aria-label',`${job.payload.baseline?'Baseline':'Model'} test mix playback`);
         audio.addEventListener('play',()=>document.querySelectorAll('audio').forEach(other=>{if(other!==audio)other.pause();}));
@@ -125,9 +133,9 @@ function render(){
   const refSig=references.map(r=>r.draft_id).join(',');
   if(refSig!==referenceSignature){referenceSignature=refSig;el('training-reference').replaceChildren();references.forEach(r=>option(el('training-reference'),r.title,r.draft_id));if(!references.length)option(el('training-reference'),'No prepared reference yet','');}
   referenceId=state.readiness?.draft_id||null;el('training-reference').value=referenceId||'';el('training-reference').disabled=!references.length;
-  el('training-counts').textContent=state.readiness?`${state.readiness.examples} included transitions · ${state.readiness.style_examples} style labels`:'No prepared reference recording yet';
+  el('training-counts').textContent=state.readiness?`${state.readiness.examples} included transitions · ${state.readiness.style_examples} style labels (${state.readiness.automatic_style_examples||0} automatic estimates)`:'No prepared reference recording yet';
   el('training-help').textContent=!state.readiness?.can_train?'Complete and include at least two listening reviews to train. Pending timing drafts and excluded transitions stay out.':
-    `${state.readiness.counts.excluded} excluded · ${state.readiness.counts.draft_saved||0} timing drafts pending. Training pins the included review revisions you have now.`;
+    `${state.readiness.counts.excluded} excluded · ${state.readiness.counts.draft_saved||0} timing drafts pending. Training pins your current reviews and supported automatic style estimates. Automatic labels have lower weight; your labels take precedence.`;
   const modelSig=state.models.map(m=>m.id).join(',');
   if(modelSig!==modelSignature){
     const hadModel=Boolean(modelId);modelSignature=modelSig;el('test-model').replaceChildren();

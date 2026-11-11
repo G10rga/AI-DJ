@@ -15,6 +15,15 @@ is under **Timelines** at `/timelines`.
 
 ## Docs
 
+Continuous vocal-preserving handoff and listening preview:
+[new gradual transition](docs/vocal-handoff.md).
+
+Experimental loop/filter/delay recipe and matched listening files:
+[Pedalboard preview](docs/loop-effects.md).
+
+Isolated UnmixDB recognition and pretrained DJtransGAN audio experiments:
+[measured results, listening files and reproduction](docs/open-dj-benchmarks.md).
+
 Musical timelines and the working local editor: [setup and usage](docs/timeline-usage.md).
 
 Contextual cue/recipe candidates, matched auditions and opt-in set planning:
@@ -58,6 +67,21 @@ ai-dj-set/
 ```
 
 ## Local development
+
+For comparing transition quality, open **/compare** after starting the app.
+Choose two songs, generate matched A/B previews and save A, B, tie or neither.
+See [pair listening](docs/pair-listening.md) for feedback and ranking behavior.
+
+Start the app from the project folder:
+
+```powershell
+python run.py
+```
+
+Open **http://127.0.0.1:8000/learning**. Keep the terminal open; press Ctrl+C
+to stop. The launcher uses the existing `.venv` when available and the same
+local D: drive tools/storage as `scripts/local.ps1` when present. Explicit
+environment settings take precedence.
 
 The foundation uses Python 3.12+ and the standard library. Audio analysis additionally uses librosa, NumPy, and SciPy; verified locally with Python 3.14.0 and SQLite 3.50.4. Install the tested audio dependency snapshot with `python -m pip install --no-cache-dir -r requirements-audio.txt` inside the virtual environment. Web dependencies are not installed yet.
 

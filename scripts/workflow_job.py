@@ -19,6 +19,13 @@ def cpu(settings,kind,request,destination,model=None):
 def execute(store,job,owner,work):
     settings=store.settings;identity=job['id'];payload=job['payload']
     progress=lambda text,amount:store.progress(identity,owner,text,amount)
+    if job['kind']=='pair_audition':
+        from backend.app.pair_comparisons import generate_pair
+        return generate_pair(store,job,owner,progress)
+    if job['kind']=='transition_analysis':
+        from backend.app.transition_analysis import analyze_snapshot
+        return analyze_snapshot(payload['snapshot'],store.reviews.references,progress,
+                                lambda:store.live(identity,owner))
     if job['kind']=='train':
         progress('Reading included review snapshots',.05)
         dataset=dataset_from_snapshot(payload['snapshot'],store.reviews.references,
