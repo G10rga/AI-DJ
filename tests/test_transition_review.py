@@ -72,6 +72,38 @@ class TransitionReviewTests(unittest.TestCase):
         self.assertEqual(state(self.store,identity)['history'][0]['revision'],0)
         self.assertEqual(TimelineStore(self.root).get(original[0]['track_id'],original[0]['timeline_id'])['prediction'],original[0]['prediction'])
 
+    def test_unconfirmed_saved_marks_explain_block_and_do_not_queue_preview(self):
+        identity=self.waiting();base=f'/api/v1/learning/jobs/{identity}/transition-review'
+        correction={'0':{'outgoing_line_end':60.,'incoming_entry':.08,'vocal_confirmed':False}}
+        saved=save(self.store,identity,0,correction)
+        self.assertEqual(saved['corrections'],correction)
+        self.assertEqual(saved['review_items'][0]['code'],'listening_confirmation_required')
+        self.assertEqual(saved['original_review_items'][0]['code'],'timing_unknown')
+        count=len(self.store.jobs())
+        for action,payload in [('preview',{'expected_revision':1,'join_index':0}),('resume',{'expected_revision':1})]:
+            response=self.client.post(base+'/'+action,json=payload)
+            self.assertEqual(response.status_code,422)
+            self.assertIn('confirmation is unchecked',response.json()['detail'])
+        self.assertEqual(len(self.store.jobs()),count)
+        self.assertFalse(state(self.store,identity)['corrections']['0']['vocal_confirmed'])
+        correction['0']['vocal_confirmed']=True
+        save(self.store,identity,1,correction)
+        preview=enqueue(self.store,identity,2,join_index=0)
+        self.assertEqual(preview['status'],'queued')
+
+    def test_current_preview_error_replaces_stale_original_reason(self):
+        identity=self.waiting()
+        enqueue(self.store,identity,0,join_index=0);job=self.store.claim(self.owner)
+        item={'code':'incoming_entry_unsupported','message':'Use a supported incoming bar.','join_index':0}
+        self.store.finish(job['id'],self.owner,'succeeded',{'status':'needs_review','review_items':[item]})
+        value=state(self.store,identity)
+        # The original fixture has no join index, so its global timing warning
+        # remains; the latest per-join reason must also be present.
+        self.assertEqual(value['review_items'][-1],item)
+        self.assertEqual(value['original_review_items'][0]['code'],'timing_unknown')
+        save(self.store,identity,0,{})
+        self.assertEqual(state(self.store,identity)['review_items'],value['original_review_items'])
+
     def test_stale_preview_and_cancellation_cannot_publish(self):
         identity=self.waiting();preview=enqueue(self.store,identity,0,join_index=0)
         job=self.store.claim(self.owner);self.assertEqual(job['id'],preview['id'])
@@ -130,6 +162,65 @@ class TransitionReviewTests(unittest.TestCase):
         b['effective']['beats']['times']=b['effective']['beats']['times'][::2]
         b['effective']['downbeats']['times']=b['effective']['beats']['times'][::4]
         self.assertFalse(propose_pair(a,b,correction=correction)['candidates'])
+
+    def test_incoming_placement_on_outgoing_is_pinned_and_preserves_tail_guard(self):
+        correction={'outgoing_line_end':60.,'incoming_entry':.08,'vocal_confirmed':True}
+        baseline=propose_pair(*self.records,correction=correction)
+        cue=next(c for c in baseline['candidates'] if c['recipe']=='protected_vocal')['source_cues'][0]
+        correction['incoming_at_outgoing']=cue+.3
+        proposal=propose_pair(*self.records,correction=correction)
+        self.assertTrue(proposal['candidates'])
+        for candidate in proposal['candidates']:
+            self.assertAlmostEqual(candidate['source_cues'][0],cue,places=2)
+            self.assertEqual(candidate['requested']['correction']['incoming_at_outgoing'],cue+.3)
+        plan=plan_set(self.records,corrections={'0':correction})['plan']
+        self.assertIsNotNone(plan)
+        self.assertAlmostEqual(plan['sources'][0]['source_in']+plan['joins'][0]['entry_seconds']*
+                               plan['joins'][0]['candidate']['source_ratios'][0],cue,places=2)
+        identity=self.waiting()
+        saved=save(self.store,identity,0,{'0':correction})
+        self.assertEqual(saved['corrections']['0']['incoming_at_outgoing'],cue+.3)
+        child=enqueue(self.store,identity,1,join_index=0)
+        self.assertEqual(self.store.job(child['id'],internal=True)['payload']['corrections']['0'],correction)
+        conflicting={**correction,'outgoing_line_end':cue+40}
+        extended=propose_pair(*self.records,correction=conflicting)
+        self.assertTrue(extended['candidates'])
+        self.assertTrue(all(c['source_cues'][0]+c['fade_start_local_seconds']*c['source_ratios'][0]>=cue+42-1e-8
+                            for c in extended['candidates']))
+        for invalid in (-1,160,float('nan')):
+            with self.assertRaises(ValueError):
+                save(self.store,identity,1,{'0':{**correction,'incoming_at_outgoing':invalid}})
+
+    def test_incoming_source_start_is_preserved_and_outgoing_phase_is_aligned(self):
+        correction={'outgoing_line_end':60.,'incoming_entry':.58,'vocal_confirmed':True}
+        result=propose_pair(*self.records,correction=correction)
+        self.assertTrue(result['candidates'])
+        self.assertEqual(correction['incoming_entry'],.58)
+        for candidate in result['candidates']:
+            self.assertAlmostEqual(candidate['source_cues'][1],.58,places=2)
+            self.assertEqual(candidate['requested']['correction']['incoming_entry'],.58)
+        broken=deepcopy(self.records)
+        broken[1]['effective']['downbeats']['times']=[t for t in broken[1]['effective']['downbeats']['times'] if t>100.]
+        self.assertFalse(propose_pair(*broken,correction=correction)['candidates'])
+
+    def test_placement_estimate_is_read_only_and_invalid_end_does_not_queue(self):
+        identity=self.waiting();base=f'/api/v1/learning/jobs/{identity}/transition-review'
+        row={'incoming_at_outgoing':40.25,'outgoing_source_out':80.,'incoming_entry':.58,
+             'outgoing_line_end':60.,'vocal_confirmed':False}
+        before=len(self.store.jobs())
+        response=self.client.post(base+'/placement',json={'expected_revision':0,'join_index':0,'corrections':{'0':row}})
+        self.assertEqual(response.status_code,200);value=response.json()
+        self.assertEqual(value['status'],'estimated');self.assertTrue(value['confirmation_required'])
+        self.assertEqual(value['placement']['outgoing_finish'],80.)
+        self.assertEqual(value['placement']['incoming_source_start'],.58)
+        self.assertEqual(state(self.store,identity)['corrections'],{})
+        self.assertEqual(len(self.store.jobs()),before)
+        self.assertEqual(self.client.post(base+'/placement',json={'expected_revision':1,'join_index':0,'corrections':{'0':row}}).status_code,409)
+        invalid={**row,'vocal_confirmed':True,'outgoing_source_out':30.}
+        save(self.store,identity,0,{'0':invalid})
+        response=self.client.post(base+'/preview',json={'expected_revision':1,'join_index':0})
+        self.assertEqual(response.status_code,422);self.assertIn('finish after',response.json()['detail'])
+        self.assertEqual(len(self.store.jobs()),before)
 
     def test_schema_nine_migration_preserves_old_rows_and_new_review_relations(self):
         identity=self.waiting()

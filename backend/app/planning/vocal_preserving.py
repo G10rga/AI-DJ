@@ -67,7 +67,7 @@ def structural_support(evidence, cue):
     return any(abs(section['time']-cue) <= 2 for section in evidence['structural_changes'])
 
 
-def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, target_bpm=None, prediction=None, correction=None):
+def _legacy_propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, target_bpm=None, prediction=None, correction=None):
     if type(maximum) is not int or not 1 <= maximum <= 12 or not math.isfinite(seconds) or seconds < 16:
         raise ValueError('Choose a finite play preference of at least 16s and at most twelve candidates')
     records = [left, right]
@@ -92,6 +92,47 @@ def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, targ
         return {'version': VERSION, 'candidates': [], 'review_items': [review('timing_unknown', str(exc))]}
     if len(tempos) != 2:
         raise ValueError('Two source tempos are required')
+    outgoing_entry = None
+    incoming_entry = None
+    if correction and correction.get('incoming_entry') is not None:
+        requested_entry = correction['incoming_entry']
+        if (type(requested_entry) not in (int, float) or not math.isfinite(requested_entry)
+                or not 0 <= requested_entry < sources[1]['duration_seconds']):
+            raise ValueError('Incoming source start must be finite seconds inside the incoming song')
+        downs = sources[1]['downbeats']
+        incoming_entry = min(downs, key=lambda t: abs(t-requested_entry)) if downs else None
+        if incoming_entry is None or abs(incoming_entry-requested_entry) > 120/tempos[1]:
+            return {'version': VERSION, 'candidates': [], 'review_items': [review('incoming_entry_unsupported',
+                'The incoming source-start mark has no nearby downbeat. Correct the timing or move its source mark.',
+                source=1, details={'requested': requested})]}
+    if correction and correction.get('incoming_at_outgoing') is not None:
+        requested_entry = correction['incoming_at_outgoing']
+        if (type(requested_entry) not in (int, float) or not math.isfinite(requested_entry)
+                or not 0 <= requested_entry < sources[0]['duration_seconds']):
+            raise ValueError('Incoming placement must be finite seconds inside the outgoing song')
+        downs = sources[0]['downbeats']
+        outgoing_entry = min(downs, key=lambda t: abs(t-requested_entry)) if downs else None
+        if outgoing_entry is None or abs(outgoing_entry-requested_entry) > 120/tempos[0]:
+            return {'version': VERSION, 'candidates': [], 'review_items': [review('outgoing_entry_unsupported',
+                'The requested incoming-song placement has no nearby outgoing downbeat. Correct the timing or move the marker.',
+                source=0, details={'requested': requested})]}
+        if correction.get('vocal_confirmed') and correction.get('outgoing_line_end') is not None:
+            allowed_bars = [bars for bars in (8, 16) if not prediction or 'overlap_seconds' not in prediction
+                            or abs(prediction['overlap_seconds']-bars*240/target) <= .25]
+            max_hold = (max(allowed_bars, default=0)*120/tempos[0]
+                        if not prediction or prediction.get('recipe') != 'plain_crossfade' else 0.)
+            tail_end = correction['outgoing_line_end']+TAIL_GUARD
+            earliest_entry = tail_end-max_hold
+            if outgoing_entry < earliest_entry-1e-6:
+                return {'version': VERSION, 'candidates': [], 'review_items': [review('entry_before_vocal_tail',
+                    f'The second song is marked to enter at {correction["incoming_at_outgoing"]:.3f}s '
+                    f'on the first song, whose vocal ends at {correction["outgoing_line_end"]:.3f}s. '
+                    f'The current blends would fade the first song before its vocal tail finishes. '
+                    f'Move the entry marker to a supported bar at or after {earliest_entry:.3f}s, '
+                    'or clear that optional marker to let the planner choose the entry.',
+                    source=0, details={'requested': requested, 'snapped_entry_seconds': outgoing_entry,
+                        'earliest_entry_seconds': earliest_entry, 'vocal_tail_end_seconds': tail_end,
+                        'maximum_protected_hold_source_seconds': max_hold})]}
     pool = []
     for bars in (8, 16):
         overlap = bars*240/target
@@ -107,6 +148,8 @@ def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, targ
                 rows = evidence[side]['vocal_activity']
                 for span in spans[side]:
                     cue = span['source_cue']; ratio = ratios[side]
+                    if side == 0 and outgoing_entry is not None and abs(cue-outgoing_entry) > .25:
+                        continue
                     # A fixed source stretch must agree with the observed local
                     # fit, including the end of this entire overlap.
                     if abs(span['source_bpm']/tempos[side]-1)*overlap > .025:
@@ -129,7 +172,7 @@ def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, targ
                             after=cue+fade*ratio-correction['outgoing_line_end']
                             if not TAIL_GUARD <= after <= TAIL_GUARD+240/tempos[side]: continue
                         if side==1 and correction.get('incoming_entry') is not None:
-                            if abs(cue-correction['incoming_entry'])>.25: continue
+                            if abs(cue-incoming_entry)>.25: continue
                         human=bool(correction.get('vocal_confirmed') and correction.get('outgoing_line_end') is not None
                                    and correction.get('incoming_entry') is not None)
                     if activity['status'] != 'quieter_candidate' and not human:
@@ -188,11 +231,30 @@ def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, targ
     chosen.sort(key=lambda candidate: (candidate['rank'], candidate['id']), reverse=True)
     if not chosen:
         failures.append(review('no_safe_candidate',
-            'No supported handoff covers the outgoing fade and two-second guard and the entire incoming overlap.',
+            ('The requested second-song entry cannot satisfy the supported bars and vocal tail guard. '
+             'Move its marker or check the vocal-end and incoming source marks.' if outgoing_entry is not None else
+             'No supported handoff covers the outgoing fade and two-second guard and the entire incoming overlap.'),
             details={'requested': requested, 'timing_spans': [len(e['regular_spans']) for e in evidence],
                      'vocal_coverage_bins': [len(e['vocal_activity']) for e in evidence]}))
     return {'version': VERSION, 'candidates': chosen, 'review_items': failures, 'limit': maximum,
             'eligible_count': len(pool), 'requested': requested}
+
+
+def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, target_bpm=None,
+                 prediction=None, correction=None, manual_mode=True):
+    if type(maximum) is not int or not 1<=maximum<=12 or not math.isfinite(seconds) or seconds<16:
+        raise ValueError('Choose a finite play preference of at least 16s and at most twelve candidates')
+    if manual_mode and correction and correction.get('vocal_confirmed'):
+        from .manual_handoff import propose, has_intent
+        if has_intent(correction):
+            try:
+                return propose(left,right,seconds=seconds,maximum=maximum,source_bpms=source_bpms,
+                               target_bpm=target_bpm,prediction=prediction,correction=correction)
+            except ValueError as exc:
+                return {'version':'manual-handoff-1','candidates':[],
+                        'review_items':[review('manual_timing_unknown',str(exc))]}
+    return _legacy_propose_pair(left,right,seconds=seconds,maximum=maximum,source_bpms=source_bpms,
+                               target_bpm=target_bpm,prediction=prediction,correction=correction)
 
 
 def compatible(previous, following, minimum_solo=4.):
@@ -202,7 +264,7 @@ def compatible(previous, following, minimum_solo=4.):
         and following['source_cues'][0] >= previous['source_cues'][1]+(previous['overlap_seconds']+minimum_solo)*ratio)
 
 
-def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corrections=None):
+def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corrections=None, manual_mode=True):
     if len(records) < 2:
         raise ValueError('Select at least two source entries')
     if predictions is not None and len(predictions) != len(records)-1:
@@ -210,13 +272,17 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corre
     if selected_ids is not None and len(selected_ids) != len(records)-1:
         raise ValueError('One selected candidate per join is required')
     try:
-        tempos, target = source_tempos(records)
+        if manual_mode and any(c.get('vocal_confirmed') for c in (corrections or {}).values()):
+            from .manual_handoff import manual_tempos
+            tempos,target=manual_tempos(records,corrections)
+        else:
+            tempos, target = source_tempos(records)
     except ValueError as exc:
         return {'status': 'needs_review', 'plan': None, 'review_items': [review('timing_unknown', str(exc))], 'proposals': []}
     proposals = []
     for i in range(len(records)-1):
         proposal = propose_pair(records[i], records[i+1], seconds=seconds, source_bpms=tempos[i:i+2], target_bpm=target,
-            prediction=predictions[i] if predictions is not None else None, correction=(corrections or {}).get(str(i)))
+            prediction=predictions[i] if predictions is not None else None, correction=(corrections or {}).get(str(i)),manual_mode=manual_mode)
         if selected_ids is not None:
             proposal['candidates'] = [c for c in proposal['candidates'] if c['id'] == selected_ids[i]]
             if not proposal['candidates']:
@@ -246,6 +312,7 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corre
         if not paths:
             return {'status': 'needs_review', 'plan': None, 'review_items': [review('middle_track_conflict',
                 'Adjacent joins cannot share a continuous source interval without overlapping automation.', join=i, source=i)], 'proposals': proposals}
+    adaptive=any(c['version']=='manual-handoff-1' for c in paths[0][1]) if paths else False
     def ending(candidate):
         ratio = target/tempos[-1]
         begin = candidate['source_cues'][1]
@@ -254,11 +321,13 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corre
         preferred = begin+seconds*ratio
         human=(corrections or {}).get(str(len(records)-2),{})
         if human.get('vocal_confirmed') and human.get('ending_source_out') is not None:
-            boundaries=[t for t in raw['downbeats'] if t>=earliest and abs(t-human['ending_source_out'])<=.25]
+            tolerance=120/tempos[-1]+.05 if adaptive else .25
+            boundaries=[t for t in raw['downbeats'] if t>=earliest and abs(t-human['ending_source_out'])<=tolerance]
             return min(boundaries,key=lambda t:abs(t-human['ending_source_out'])) if boundaries else None
         boundaries = [t for t in raw['downbeats'] if t >= earliest and t < raw['duration_seconds']
             and interval_activity(evidence['vocal_activity'], max(begin, t-TAIL_GUARD), t)['status'] == 'quieter_candidate']
-        return min(boundaries, key=lambda t: abs(t-preferred)) if boundaries else None
+        return (min(boundaries, key=lambda t: abs(t-preferred)) if boundaries else
+                raw['duration_seconds'] if adaptive and earliest<raw['duration_seconds'] else None)
     feasible = [(last, path, score, ending(last)) for last, path, score in paths]
     feasible = [item for item in feasible if item[3] is not None]
     if not feasible:
@@ -278,6 +347,8 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corre
         source = {'entry_id': f'entry-{i}', 'reference': evidence['reference'], 'source_in': begin, 'source_out': end,
                   'source_duration': raw['duration_seconds'], 'source_bpm': tempos[i], 'target_bpm': target,
                   'start_seconds': starts[i], 'duration_seconds': (end-begin)/ratio}
+        if adaptive and i==len(records)-1 and abs(end-raw['duration_seconds'])<1e-8:
+            source['ending_policy']='natural_source_end'
         sources.append(source)
         if i < len(chosen):
             starts.append(starts[i]+source['duration_seconds']-chosen[i]['overlap_seconds'])
@@ -288,7 +359,7 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corre
             'fade_start_seconds': entry+candidate['fade_start_local_seconds'],
             'end_seconds': entry+candidate['overlap_seconds'],
             'protected_interval': [joins[-1]['end_seconds'] if joins else starts[i], entry+candidate['fade_start_local_seconds']]})
-    plan = {'version': VERSION, 'pipeline': PIPELINE, 'sample_rate': 44100,
+    plan = {'version': 'vocal-preserving-planner-2' if adaptive else VERSION, 'pipeline': PIPELINE, 'sample_rate': 44100,
         'sources': sources, 'joins': joins, 'duration_seconds': starts[-1]+sources[-1]['duration_seconds'],
         'requested': {'seconds': seconds, 'predictions': deepcopy(predictions)}, 'listening_accepted': None}
     if corrections: plan['requested']['corrections']=deepcopy(corrections)
@@ -299,7 +370,7 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corre
 
 def validate_plan(plan, records):
     copy = deepcopy(plan); identity = copy.pop('id', None)
-    if identity != digest(copy) or plan.get('version') != VERSION or plan.get('pipeline') != PIPELINE:
+    if identity != digest(copy) or plan.get('version') not in (VERSION,'vocal-preserving-planner-2') or plan.get('pipeline') != PIPELINE:
         raise ValueError('Plan identity or pipeline changed')
     if len(plan['sources']) != len(records) or len(plan['joins']) != len(records)-1:
         raise ValueError('Plan must preserve every ordered entry')
@@ -331,7 +402,8 @@ def validate_plan(plan, records):
         eligible = propose_pair(records[i], records[i+1], seconds=plan['requested']['seconds'],
             source_bpms=candidate['source_bpms'], target_bpm=candidate['target_bpm'],
             prediction=plan['requested']['predictions'][i] if plan['requested']['predictions'] is not None else None,
-            correction=plan['requested'].get('corrections',{}).get(str(i)))
+            correction=plan['requested'].get('corrections',{}).get(str(i)),
+            manual_mode=plan['version']=='vocal-preserving-planner-2')
         if candidate['id'] not in {c['id'] for c in eligible['candidates']}:
             raise ValueError('Candidate no longer satisfies pinned musical constraints')
         left, right = plan['sources'][i:i+2]
@@ -353,8 +425,11 @@ def validate_plan(plan, records):
     last = plan['sources'][-1]
     rows = source_evidence(records[-1])[0]['vocal_activity']
     ending=plan['requested'].get('corrections',{}).get(str(len(records)-2),{})
-    human_ending=ending.get('vocal_confirmed') and ending.get('ending_source_out') is not None and abs(last['source_out']-ending['ending_source_out'])<=.25
+    ending_tolerance=120/last['source_bpm']+.05 if plan['version']=='vocal-preserving-planner-2' else .25
+    human_ending=ending.get('vocal_confirmed') and ending.get('ending_source_out') is not None and abs(last['source_out']-ending['ending_source_out'])<=ending_tolerance
+    natural_ending=(plan['version']=='vocal-preserving-planner-2' and last.get('ending_policy')=='natural_source_end'
+                    and abs(last['source_out']-last['source_duration'])<1e-8)
     if (abs(plan['duration_seconds']-last['start_seconds']-last['duration_seconds']) > 1e-7
-            or (not human_ending and interval_activity(rows, last['source_out']-TAIL_GUARD, last['source_out'])['status'] != 'quieter_candidate')):
+            or (not human_ending and not natural_ending and interval_activity(rows, last['source_out']-TAIL_GUARD, last['source_out'])['status'] != 'quieter_candidate')):
         raise ValueError('Ending duration or quieter evidence changed')
     return plan

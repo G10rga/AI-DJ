@@ -1,5 +1,230 @@
 # Handoff — AI DJ Set Maker
 
+## Save/preview input bug fixed (2026-11-12)
+
+Owner could not save/preview edits. Reproduced: typing in a focused numeric field
+left Save disabled and listening confirmation unchanged because only change
+(on blur) was handled. Added input handlers; Save now enables and confirmation
+clears immediately. Added adjacent action status explaining unsaved/saved state,
+confirmation, pending estimates and physical placement blockers. Added explicit
+Use automatic first-song finish action, clearing only outgoing_source_out.
+No owner corrections were changed; these are live static assets (reload required
+in existing tabs; preserve any unsaved times before reload).
+
+The saved Pasilda/Cora??o review84379dc71fcd4b64a978eef596864daf revision10 has
+vocal_end126.189 and source_out126.268, leaving .079s instead of the vocal guard
+plus fade. Its disabled preview is a genuine conflicting-mark condition; Save
+was disabled because those marks were already saved. Automatic finish provides
+an actionable way to preserve the vocal-end and entrance while fixing that bound.
+Owner was asked which pair they are editing; no reply at implementation time.
+
+Browser QA scripts/check_save_preview_ui.mjs passed against isolated fixture
+review-browser-0492868337344c5d945a05bda57aad7f: input-before-blur, confirmation
+reset/explanation, invalid draft save/reload, automatic finish preserving Bstart,
+explicit confirmation, combined Save/Preview saves and queues. QA job cancelled
+after queue verification; no new listening claims.1440/390 screenshots/no overflow
+or console errors in fixture/save-preview-controls-check. Existing real-audio
+checks from adaptive placement remain unchanged. DESIGN/sidecar synchronized.
+
+
+## Adaptive manual placement completed (2026-11-12)
+
+Repeated manual-entry failures came from fixed 8/16-bar templates, whole-song
+tempo estimates and detector jitter in changing mix levels. Confirmed manual
+placements now use planner2 / manual-handoff-1. Incoming source starts and
+explicit first-song finishes remain exact; the entrance can shift to a nearby
+bar, disclosed before preview. Long vocal holds preserve full outgoing gain
+through vocal-end +2s, then a >=2s fade; overlap remains >=4 bars. Vocal-end is
+optional with quieter evidence. Natural final-source EOF is supported. Existing
+version1 plans preserve eligibility and identity.
+
+The outgoing player adds Finish first song here and a white marker. A read-only
+placement endpoint/live estimate exposes entry, adjustment, hold/fade and finish.
+Source edits reset confirmation. Invalid physical bounds disable preview while
+drafts remain saveable. DESIGN.md/sidecar updated; existing page-specific type
+ignore remains a verified static stylesheet-resolution false positive. No broad
+suppression, owner votes, training, default promotion or M4 listening approval.
+
+Timing4 independently analyzes original passages; human-corrected grids retain
+priority. Short overlaps use whole-overlap bar phase, early/late beats and nearby
+observed 4/4 context. Quantization-aware observed-clock fits retain raw diagnostics
+and require <=25ms fitted phase at both window edges. Actual pre-encode/decoded
+PCM comparisons cover consecutive stereo windows (<=1ms lag, >=.98 similarity),
+resolving detector bias in the changing mixture. Original/prepared musical gates
+still apply. Current placement encoding: zero lag, minimum similarity .9933 in19
+windows. Real wrong beat/bar/tempo and encoding-shift faults remain rejected.
+
+52 targeted tests passed. All three real adaptive placements (current owner,
+long hold, explicit short finish) validated. Five exact legacy plans replayed.
+Four real-audio faults rejected: half-beat shift, one-beat bar phase, 2% drift,
+encoded-only shift. Evidence:
+- D:/AI-DJ-data/validation/adaptive-manual-6c48138a59f9415faf66490b0091ae55
+  (three cases, current-placement/timing-capture/deliberate-faults-b2bd53637053456c9eb858edffc26ed3,
+  live-preview.json and live-ui).
+- D:/AI-DJ-data/validation/timing-regressions-362a7e6848f84dad95b85b39e0706c73
+- Isolated browser review-browser-0492868337344c5d945a05bda57aad7f:
+  mark/save/reload/reset, read-only live estimate, exact Afinish80 / Bstart240.06,
+  real preview/media206,1440/390 layouts without overflow or console errors.
+  Invalid unsaved finish60 blocks preview, resets confirmation, allows Save.
+
+Main idle app restarted on8005. Armand/Gaskin review
+ba97ba06eea449d99aacba63206d298a remains revision3 with unchanged marks.
+New preview dcc174d810e045178f50f661d31e3d18 succeeded: exact B115.401,
+Aentry107.014431592, Afade122.880, Afinish130.373626374. Media206 verified;
+live desktop/mobile current-ready status and earlier-attempt labels checked.
+Isolated fixture8009 stopped; main8005 stays running. No commit made.
+
+
+## Repeated timing false positives fixed systemically
+
+The latest report was revision 9 preview `7e1179e9bbfe437ba4fb5c49c03ebc1b`,
+with incoming_entry=36.867 and outgoing_line_end=124.796. The previous fix only
+handled cached-grid context jitter; this case exposed unstable independent
+detections caused by short, differently leveled excerpts. Controlled comparison
+on identical audio: normalized 8s context still fails; fixed 24s context with
+mono RMS 0.1 / peak cap 0.98 passes all 30 checks plus both solos. New
+audio/timing_input.py applies a fixed analysis-only normalization, retaining
+silence as unknown. Worker reports improved-audio-timing-3 and pins policy hash,
+normalization factors and exact input windows. No timing limits were widened.
+
+40 targeted tests passed. Five exact-plan real replays passed: three failed
+attempts and two prior successes (the latter retain bit-identical audio). Four
+deliberate real-audio faults were rejected: half-beat shift, one-beat bar phase
+(downbeat checks), 2% tempo drift and encoded-only time shift. Replays are in
+`D:/AI-DJ-data/validation/timing-regressions-35c29f9b20254308b8fb93426a79e0d5/`.
+Capture, fixed-policy diagnosis and fault results are under
+`D:/AI-DJ-data/validation/systemic-timing-02033e355fb947898206a041ae2b78ab/`.
+
+Live same-cue preview `531a62c658b5440e994b2e46a7a2ea25` succeeded with identical
+plan ID to the revision-9 failure, all 30 initial checks aligned, both solos
+aligned, artifact hashes/range playback verified, and no changed owner marks or
+votes. Review `84379dc71fcd4b64a978eef596864daf` now has current reasons empty.
+UI status follows the current selected transition's attempt, older attempts are
+labelled, and reasons are scoped to the selected join. Desktop/390px read-only
+browser checks passed with no console errors or horizontal overflow. Refresh to
+load the status JavaScript. New workflow subprocesses already use the new
+validator; no server restart is required. Listening approval for this preview
+and remaining M4 cases/default promotion are still pending; default legacy-v1.
+
+## Same-cue timing recheck succeeded
+
+Short-edit preview `3149351b716b4528a70aed8ba8a68a33` failed only a late cached-
+original beat comparison (two ~30ms differences; 25ms threshold). All actual
+prepared-pair/encoded checks passed. Same-context original reanalysis, raw and
+preparation-gain variants, passed the existing limits and accounted for 100% of
+cached markers. The worker now supports this explicit, hash-pinned recheck only
+for cached-original mismatches. Unknowns, actual prepared/encoded disagreement,
+bad solos and irregular bars still block. Raw failed checks remain recorded and
+carry resolution links; limits were not increased. See the 2026-11-12 local-
+original-timing-recheck plan and docs/transition-review.md.
+
+Rerender `94524e3c890f4afabef856d51f820e89` succeeded with the IDENTICAL plan ID
+and saved source corrections, now playable from review
+`84379dc71fcd4b64a978eef596864daf`. Media integrity/range checks passed. 35 targeted
+tests passed, including slip/phase/missing-marker/unknown/solo rejection and
+review/publication guards. No source marks, votes, defaults or old results changed.
+This short-edit case drove validator tuning and is now a regression example;
+fresh examples are required for subsequent independent quality claims. Its new
+audio has not yet received an owner verdict. Evidence and audio/report hashes:
+`D:/AI-DJ-data/validation/timing-diagnosis-728ed7768f7f4915b0ea2855a1e7873f/`.
+The normal app worker loaded the new code in its new subprocess; no server
+restart was needed for this rendering-worker change.
+
+## Placement-conflict fix tested and app restarted
+
+Owner's short-edit pair review `84379dc71fcd4b64a978eef596864daf` revision 2 has
+incoming_at_outgoing=111.165, outgoing_line_end=140.813, incoming_entry=20.289,
+vocal_confirmed=true. That entrance cannot preserve the vocal in current 8/16-bar
+envelopes. Code now gives entry_before_vocal_tail with exact times (theoretical
+earliest entrance 128.046s) and snaps incoming source starts to the nearest
+downbeat within half a bar, retaining requested/applied provenance and timing
+gates. Read-only planning without the fixed outgoing entrance finds a protected
+8-bar candidate at 137.097s outgoing / 19.740s incoming. Owner marks unchanged.
+23 existing review/planner tests and two targeted tests passed. No audio rendered
+for the new candidate and no listening verdict inferred.
+
+The earlier combined restart/reproduction call was rejected by automatic approval
+review. Owner then explicitly requested restart; the idle main app was restarted
+successfully on port 8005. The review API returns 200 and original saved marks
+remain unchanged. New previews use the latest snapping/conflict code. Stored
+historical failures retain their original messages until a new preview is run.
+
+## Incoming-song placement marker added
+
+The review now has Bring next song in here on the outgoing player, a labelled
+dashed amber marker, and an optional Second song enters first at numeric field.
+`incoming_at_outgoing` persists outgoing-source seconds and constrains the planned
+overlap entry to the nearest supported outgoing bar. The second song's own source
+start and outgoing vocal-end remain separate. Source edits clear confirmation;
+tail protection, timing checks and original reviews without this field remain.
+23 review/planner tests passed. Isolated desktop/390px browser save/reload and
+real native-worker preview passed (requested 68.249s, applied 68.149s), with media
+range playback and no console errors. See docs/transition-review.md and the
+entry-marker-check evidence directory. Owner review values were not modified.
+
+## First M4 corrected preview sounds good to owner
+
+Owner said “it sounds good” about preview `c0dd428a56464d9f8e6198253fbf65cc`.
+Exact audio/report/plan hashes and review revision 2 are pinned in the frozen
+session's `owner-feedback/0ffa31f081384769a13a41835e5641cf.json`. This is preview-
+specific feedback, not an A/B vote, training label, batch/default approval.
+Full pair comparison resumed through the app as
+`525e1ece692141c9a43a7acdaedd844a`, retaining both saved source marks and explicit
+owner listening confirmation. See `corrected-comparison.json` in the session.
+It succeeded with protected/plain alternatives both at -20.0 LUFS; no A/B vote
+has been inferred. The identical confirmed first-join source marks were carried
+into the five-song set's review revision 1 after checking the complete source
+evidence and analysis revisions match. The session's cue-transfer JSON pins the
+provenance. Set joins 2/3/4 remain unmarked; the full set has no audio yet.
+
+## Saved source marks confirmation feedback fixed
+
+The owner saved outgoing 184.218s / incoming 101.821s on the first M4 pair, but
+`vocal_confirmed` remained false. Its preview therefore retained automatic vocal
+gates. `transition_review.py` now shows a specific unchecked-confirmation reason
+and rejects marked-but-unconfirmed preview/resume before enqueueing. Original
+errors remain in `original_review_items`; completed current-revision child
+results update displayed errors by join. No owner values or confirmation changed.
+Read-only planning with those same marks and confirmation enabled yields two
+candidates; this is not audio validation or acceptance. All 11 review tests and
+real API/no-enqueue checks passed. The idle app was restarted on port 8005 to
+load the fix. Owner must explicitly confirm listening before previewing.
+
+## Milestone 4 batch needs listening corrections — 2026-11-12
+
+Read [docs/listening-acceptance.md](docs/listening-acceptance.md). Five new-to-the-
+improved-pipeline ordered pairs (ten distinct sources) and one five-song order
+are frozen in `D:/AI-DJ-data/validation/listening-acceptance-3832c4ee1af243b595382cac21a7df19/manifest.json`.
+`jobs.json` pins its hash and six ordinary main-app jobs. The app at port 8005
+completed their sequential analysis; all six original jobs need review. Do not enqueue replacements or change
+the frozen manifest after seeing results. Case descriptions are hypotheses;
+measure actual vocal/rhythmic coverage before marking that acceptance box.
+
+The previous At Night/Stupidisco owner-reviewed regression audio/report is
+retained with verified hashes. A reporter can refresh status/README via
+`scripts.listening_acceptance --session <directory> --watch`; it cannot vote or
+promote. Compare owns actual pair feedback; source corrections remain in the
+normal transition-review flow. Needs review is an abstention, not a listening
+pass. Default remains legacy-v1. No effects, training, owner votes or commits.
+M4 requires listening/corrections and explicit owner default approval.
+
+First case `2cdf09ca47dd4724af91cf52f025e328` finished as Needs review:
+incoming Push The Feeling On has no rhythm-supported full overlap classified
+quiet by MDX, despite 60 supported eight-bar timing spans. Owner source-boundary
+input was requested through its normal review page. Do not mark it accepted or
+weaken gates automatically. All other original batch jobs also need review. Three isolated batch
+tool tests passed; real page/API/original-range checks passed; default legacy-v1
+and withheld-audio 404 verified. Reporter PID is in the session's reporter.pid;
+it exits after all six original jobs leave queued/running.
+
+Read-only diagnosis of all five pairs is retained in the session's
+constraint-diagnosis.json. Timing-supported spans exist in every case. Estimated
+vocal activity eliminates all candidates on incoming for dub-rhythm, both sides
+for sung/percussive vocals, and outgoing for hook-to-extended/short-vocal-edits.
+No unknown-evidence gap caused these rejections. This is a conservative policy
+limitation, not musical impossibility. No production code, threshold, owner
+correction, vote, default or frozen result changed during diagnosis.
+
 ## Main-app improvement milestone 3 completed — 2026-11-12
 
 See [plan.md](plan.md) and [docs/transition-review.md](docs/transition-review.md).

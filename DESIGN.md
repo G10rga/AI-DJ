@@ -194,6 +194,18 @@ and its source-mark action. Amber marks the requested source cue; missing eviden
 remains explicit. SVG labels adapt to the actual panel width so times stay legible
 on phones. Native transport/seek controls retain their working space.
 
+The outgoing player's Bring next song in here action adds a labelled, dashed
+amber placement marker, separate from its solid vocal-end marker. The same
+position is editable in source seconds below. Finish first song here adds a white
+finish marker, independent of the entrance and vocal-end marks. A polite live
+status describes the calculated entrance adjustment, protected hold and finish
+before preview; incompatible physical bounds disable preview while keeping drafts
+saveable. The incoming source start stays exact. Correction fields form two columns
+on desktop and one on phones. Editing a source mark clears listening confirmation. Numeric edits register on input, before blur.
+An adjacent action status distinguishes saved drafts, required listening
+confirmation and placement blockers. Use automatic first-song finish clears only
+the optional finish mark; it never changes the entry or incoming source point.
+
 Correction fields sit below the originals, followed by explicit listening
 confirmation, requested/applied cues and Save/Preview/Resume actions. Preview and
 resumed-generation history uses quiet rows and native players, preserving earlier

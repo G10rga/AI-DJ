@@ -14,7 +14,7 @@ try{
  await until(()=>page.eval(()=>[...document.querySelectorAll('.original audio')].every(a=>a.readyState>=1)),'original playback metadata',30);
  const savedRevision=(await review()).revision+1;
  await page.eval(()=>{const a=document.querySelectorAll('.original audio');a[0].currentTime=73.7;a[1].currentTime=240.06;});await sleep(500);
- await page.eval(()=>{document.querySelectorAll('.source-tools button').forEach(b=>b.click());document.getElementById('vocal-confirmed').click();document.getElementById('save-review').click();});
+ await page.eval(()=>{document.querySelectorAll('.original').forEach(panel=>panel.querySelector('.source-tools button').click());document.getElementById('vocal-confirmed').click();document.getElementById('save-review').click();});
  await until(()=>page.eval(rev=>document.getElementById('review-revision').textContent.includes('revision '+rev)&&!document.getElementById('preview-join').disabled,savedRevision),'saved correction revision');
  await page.screenshot({path:join(out,'desktop.png'),format:'png',fullPage:true});
  await page.eval(()=>document.getElementById('preview-join').click());

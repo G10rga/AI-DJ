@@ -69,25 +69,126 @@ def window_alignment(first, second, start, end, tolerance=.025):
         'tolerance_seconds':tolerance, 'edge_policy':'Every core marker matched symmetrically; neighbors within tolerance retained'}
 
 
-def audit_join(first, second, expected, entry, end, encoded=None):
+def clock_alignment(first,second,start,end,tolerance=.025):
+    """Resolve detector-frame jitter only with complete, regular observed clocks.
+
+    BeatThis timestamps have 20ms resolution. Retain the raw check and require
+    fitted phase at both window edges within the original physical tolerance.
+    Missing events, irregular timing, real phase errors and drift still fail.
+    """
+    raw=window_alignment(first,second,start,end,tolerance)
+    if raw['status']!='mismatch':return raw
+    a,b=np.asarray(first),np.asarray(second)
+    fits=[]
+    for one,two in ((a,b),(b,a)):
+        core=one[(one>=start)&(one<=end)]
+        nearest=np.argmin(abs(core[:,None]-two[None,:]),axis=1)
+        matches=two[nearest]
+        if len(set(nearest))!=len(core) or np.max(abs(matches-core))>tolerance+.021:return raw
+        x=np.arange(len(core));p,o=np.polyfit(x,core,1);q,v=np.polyfit(x,matches,1)
+        residuals=[float(np.max(abs(core-(p*x+o)))),float(np.max(abs(matches-(q*x+v))))]
+        phase=(q-p)*(np.array([start,end])-o)/p+v-o
+        if not (.4<p<.6 and .4<q<.6) or max(residuals)>.026 or np.max(abs(phase))>tolerance:return raw
+        fits.append({'edge_phase_seconds':phase.tolist(),'maximum_residual_seconds':residuals,
+                     'observed_period_seconds':[float(p),float(q)],'count':len(core)})
+    return {**raw,'status':'aligned','verification':'quantization-aware-clock-fit-1',
+            'raw_marker_check':raw,'clock_fits':fits,'detector_frame_seconds':.02}
+
+
+def contextual_bar_support(beats,downbeats,start,end):
+    """Use the nearest observed bars when a short handoff has few complete bars."""
+    core=bar_support(beats,downbeats,start,end)
+    if len(core.get('beat_counts',[]))>=3:return core
+    b=np.asarray(beats);d=np.asarray(downbeats)
+    rows=[(float(left),float(right),int(np.sum((b>=left-.05)&(b<right-.05))))
+          for left,right in zip(d,d[1:])]
+    if len(rows)<3:return core
+    middle=(start+end)/2
+    nearest=sorted(rows,key=lambda r:abs((r[0]+r[1])/2-middle))[:3]
+    selected=sorted(set(nearest+[r for r in rows if r[0]>=start and r[1]<=end]))
+    return {'status':'regular' if all(r[2]==4 for r in selected) else 'unknown',
+            'beat_counts':[r[2] for r in selected], 'support_window':[selected[0][0],selected[-1][1]],
+            'reason':'Nearest independently observed context bars plus every complete overlap bar'}
+
+
+def audit_join(first, second, expected, entry, end, encoded=None, *, manual=False):
     """Compare actual independent detections, original mappings and local halves."""
     windows = [('whole', entry+.5, end-.5), ('early', entry+.5, (entry+end)/2),
                ('late', (entry+end)/2, end-.5)]
     checks = []
+    def compare(a,b,left,right,tolerance,kind,window,comparison):
+        comparator=clock_alignment if manual and kind=='beats' else window_alignment
+        result=comparator(a,b,left,right,tolerance)
+        if manual and kind=='downbeats' and window!='whole' and result['status']=='unknown':
+            beat=next((c for c in checks if c['window']==window and c['kind']=='beats' and c['comparison']==comparison),None)
+            whole=window_alignment(a,b,entry+.5,end-.5,tolerance)
+            if beat and beat['status']=='aligned' and whole['status']=='aligned':
+                return {**whole,'local_status':'unknown','verification':'whole-overlap bar phase plus aligned local beats',
+                        'reason':'This half has too few downbeats; bar phase is verified over the complete overlap'}
+        return result
     for name, left, right in windows:
         for kind, tolerance in (('beats', .025), ('downbeats', .07)):
-            result = window_alignment(first[kind], second[kind], left, right, tolerance)
+            result = compare(first[kind], second[kind], left, right, tolerance,kind,name,'prepared_pair')
             checks.append({'window': name, 'kind': kind, 'comparison': 'prepared_pair', **result})
             for side, observed in enumerate((first, second)):
                 checks.append({'window': name, 'kind': kind, 'comparison': f'original_mapping_{side}',
-                    **window_alignment(expected[side][kind], observed[kind], left, right, tolerance)})
+                    **compare(expected[side][kind], observed[kind], left, right, tolerance,kind,name,f'original_mapping_{side}')})
             if encoded is not None:
                 for side, observed in enumerate((first, second)):
                     checks.append({'window': name, 'kind': kind, 'comparison': f'encoded_overlap_{side}',
-                        **window_alignment(observed[kind], encoded[kind], left, right, tolerance)})
-    support = [bar_support(item['beats'], item['downbeats'], entry+.5, end-.5) for item in (first, second)]
+                        **compare(observed[kind], encoded[kind], left, right, tolerance,kind,name,f'encoded_overlap_{side}')})
+    support_function=contextual_bar_support if manual else bar_support
+    support = [support_function(item['beats'], item['downbeats'], entry+.5, end-.5) for item in (first, second)]
     return {'version': VERSION, 'checks': checks, 'bar_support': support,
             'status': 'validated' if all(check['status'] == 'aligned' for check in checks)
                 and all(item['status'] == 'regular' for item in support) else 'needs_review'}
+
+
+def recheck_original_grid(audit, observed, expected, originals, entry, end):
+    """Resolve cached-context disagreement only with fully accountable originals.
+
+    Original failed measurements remain unchanged. The worker must provide both
+    raw and preparation-gain local detections from verified source audio.
+    """
+    from copy import deepcopy
+    failed = [c for c in audit['checks'] if c['status'] != 'aligned']
+    if (not failed or any(c['status'] != 'mismatch' or c['comparison'] not in
+                         ('original_mapping_0', 'original_mapping_1') for c in failed)
+            or len(audit.get('solo_checks', [])) != 2 or len(audit['bar_support']) != 2
+            or any(c['status'] != 'aligned' for c in audit.get('solo_checks', []))
+            or any(s['status'] != 'regular' for s in audit['bar_support'])):
+        return audit
+    sides = {int(c['comparison'][-1]) for c in failed}
+    result = deepcopy(audit)
+    checks, support = [], []
+    windows = [('whole', entry+.5, end-.5), ('early', entry+.5, (entry+end)/2),
+               ('late', (entry+end)/2, end-.5)]
+    for side in sorted(sides):
+        variants = originals.get(side, {})
+        if set(variants) != {'raw', 'prepared_gain'}:
+            return audit
+        for variant, local in variants.items():
+            support.append({'side': side, 'variant': variant,
+                **bar_support(local['beats'], local['downbeats'], entry+.5, end-.5)})
+            for window, left, right in windows:
+                for kind, tolerance in (('beats', .025), ('downbeats', .07)):
+                    checks.append({'side': side, 'variant': variant, 'window': window, 'kind': kind,
+                        'comparison': 'local_original_to_prepared',
+                        **window_alignment(local[kind], observed[side][kind], left, right, tolerance)})
+                    cached = window_alignment(expected[side][kind], local[kind], left, right, tolerance)
+                    checks.append({'side': side, 'variant': variant, 'window': window, 'kind': kind,
+                        'comparison': 'cached_to_local_original', 'required_coverage': 1., **cached})
+    resolved = (all(c['status'] == 'aligned' and (c['comparison'] != 'cached_to_local_original'
+                    or c['matched_fraction'] == 1.) for c in checks)
+                and all(s['status'] == 'regular' for s in support))
+    result['original_context_recheck'] = {'policy': 'same-context-original-1', 'checks': checks,
+        'bar_support': support, 'status': 'validated' if resolved else 'needs_review',
+        'detected_originals': originals}
+    if resolved:
+        for check in result['checks']:
+            if check['status'] != 'aligned':
+                check['resolved_by'] = 'same-context-original-1'
+        result.update(status='validated', version='independent-beat-bar-gate-2')
+    return result
 
 

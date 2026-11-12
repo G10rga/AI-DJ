@@ -35,6 +35,23 @@ def capture(store, job, owner, records):
                   (job['id'],canonical(job['payload'].get('corrections') or {})))
 
 
+def unconfirmed_marks(corrections, join_index=None):
+    """Saved marks are not a listening confirmation or an automatic override."""
+    items = []
+    for key, row in corrections.items():
+        if join_index is not None and int(key) != join_index:
+            continue
+        marked = any(row.get(name) is not None for name in
+                     ('outgoing_line_end', 'outgoing_source_out', 'incoming_entry', 'incoming_at_outgoing', 'ending_source_out'))
+        if marked and not row.get('vocal_confirmed'):
+            items.append({'code': 'listening_confirmation_required', 'join_index': int(key),
+                'source_index': None, 'details': {},
+                'message': f'Transition {int(key)+1}: source marks are saved, but listening confirmation is unchecked. '
+                    'Listen to the marked source sections, then check the listening confirmation and save before previewing.',
+                'actions': ['Confirm the source boundaries after listening, then save and preview.']})
+    return items
+
+
 def state(store, identity):
     job = store.job(identity,internal=True)
     if job['payload'].get('pipeline') != PIPELINE: raise ValueError('This job uses the current pipeline')
@@ -53,27 +70,49 @@ def state(store, identity):
             'timeline_id':record['timeline_id'],'track_id':record['track_id'],'timeline_revision':record['revision'],
             'audio_url':f'/api/v1/learning/jobs/{identity}/transition-review/sources/{i}/audio'})
     children = [store.job(row[0]) for row in children]
+    corrections = json.loads(current['snapshot_json'])
+    original_items = (job.get('result') or {}).get('review_items', [])
+    review_items = unconfirmed_marks(corrections)
+    if not review_items:
+        review_items = deepcopy(original_items)
+        for child in reversed(children):
+            if (child['payload'].get('review_revision') != current['revision']
+                    or child['status'] not in ('succeeded', 'needs_review')):
+                continue
+            child_items = deepcopy((child.get('result') or {}).get('review_items', []))
+            if child['kind'] == 'join_preview':
+                index = child['payload']['join_index']
+                for item in child_items:
+                    item['join_index'] = index
+                    if item.get('source_index') is not None:
+                        item['source_index'] += index
+                review_items = [item for item in review_items if item.get('join_index') != index]+child_items
+            else:
+                review_items = child_items
     return {'job_id':identity,'kind':job['kind'],'status':job['status'],'pipeline':PIPELINE,'revision':current['revision'],
-        'corrections':json.loads(current['snapshot_json']),'history':[{'revision':r['revision'],'created_at':r['created_at']} for r in rows],
-        'sources':sources,'seconds':context['seconds'],'review_items':(job.get('result') or {}).get('review_items',[]),
+        'corrections':corrections,'history':[{'revision':r['revision'],'created_at':r['created_at']} for r in rows],
+        'sources':sources,'seconds':context['seconds'],'review_items':review_items,'original_review_items':original_items,
         'plan':(job.get('result') or {}).get('plan'),'children':children,
         'parent_job_id':job['payload'].get('parent_job_id')}
 
 
 def validate_corrections(value, context):
     if not isinstance(value,dict): raise ValueError('Provide the transition corrections')
-    allowed = {'outgoing_line_end','incoming_entry','vocal_confirmed','ending_source_out'}
+    allowed = {'outgoing_line_end','outgoing_source_out','incoming_entry','incoming_at_outgoing','vocal_confirmed','ending_source_out'}
     for key, row in value.items():
         if not key.isdecimal() or not 0 <= int(key) < len(context['sources'])-1 or not isinstance(row,dict) or set(row)-allowed:
             raise ValueError('Invalid transition correction')
         i = int(key)
-        for name,side in (('outgoing_line_end',i),('incoming_entry',i+1),('ending_source_out',i+1)):
+        for name,side in (('outgoing_line_end',i),('outgoing_source_out',i),('incoming_entry',i+1),('incoming_at_outgoing',i),('ending_source_out',i+1)):
             t = row.get(name)
-            if t is not None and (type(t) not in (int,float) or not math.isfinite(t) or not 0 <= t < context['records'][side]['effective']['duration_seconds']):
+            duration=context['records'][side]['effective']['duration_seconds']
+            if t is not None and (type(t) not in (int,float) or not math.isfinite(t) or not 0 <= t <= duration
+                                  or (name!='outgoing_source_out' and t==duration)):
                 raise ValueError('Correction must be finite seconds inside its original song')
         if type(row.get('vocal_confirmed',False)) is not bool: raise ValueError('Confirm the vocal boundaries explicitly')
-        if row.get('vocal_confirmed') and any(row.get(k) is None for k in ('outgoing_line_end','incoming_entry')):
-            raise ValueError('Mark both vocal completion and incoming entry before confirming')
+        if row.get('vocal_confirmed') and (row.get('incoming_entry') is None or
+                not any(row.get(k) is not None for k in ('outgoing_line_end','incoming_at_outgoing','outgoing_source_out'))):
+            raise ValueError('Mark the incoming source start and an outgoing placement before confirming')
         if row.get('ending_source_out') is not None and i != len(context['sources'])-2:
             raise ValueError('Only the final song can have a corrected ending')
 
@@ -91,6 +130,29 @@ def save(store,identity,expected_revision,corrections):
     return state(store,identity)
 
 
+def placement(store,identity,expected_revision,corrections,join_index):
+    """Read-only geometry estimate; never creates confirmation, plans or jobs."""
+    from .timelines import TimelineStore
+    from .planning.manual_handoff import estimate,manual_tempos
+    with store.db.connection() as c:
+        context=c.execute('SELECT snapshot_json FROM transition_contexts WHERE job_id=?',(identity,)).fetchone()
+        revision=c.execute('SELECT MAX(revision) FROM transition_reviews WHERE job_id=?',(identity,)).fetchone()[0]
+    if not context:raise KeyError(identity)
+    if type(expected_revision) is not int or revision!=expected_revision:
+        raise ValueError('Review changed; reload before estimating placement')
+    context=json.loads(context[0]);validate_corrections(corrections,context)
+    if type(join_index) is not int or not 0<=join_index<len(context['sources'])-1:
+        raise ValueError('Choose a valid transition')
+    records=[TimelineStore(store.storage.root).get(r['track_id'],r['timeline_id']) for r in context['records']]
+    try:
+        tempos,target=manual_tempos(records,corrections)
+        result=estimate(*records[join_index:join_index+2],corrections.get(str(join_index),{}),
+            seconds=context['seconds'],source_bpms=tempos[join_index:join_index+2],target_bpm=target)
+    except ValueError as exc:
+        return {'status':'needs_input','review_items':[{'code':'local_timing_unknown','message':str(exc)}],'revision':revision}
+    return {**result,'revision':revision}
+
+
 def enqueue(store,identity,expected_revision,*,join_index=None):
     parent = store.job(identity,internal=True)
     if parent['kind']=='join_preview': raise ValueError('Resume from the original generation review to preserve all songs')
@@ -105,7 +167,20 @@ def enqueue(store,identity,expected_revision,*,join_index=None):
         if type(expected_revision) is not int or current['revision'] != expected_revision:
             raise ValueError('Review changed; reload before preview or resume')
         context = json.loads(context[0]); corrections = json.loads(current['snapshot_json'])
+        confirmation_items = unconfirmed_marks(corrections, join_index)
+        if confirmation_items:
+            raise ValueError(confirmation_items[0]['message'])
         context['records']=[timeline_store.get(record['track_id'],record['timeline_id']) for record in context['records']]
+        from .planning.manual_handoff import estimate,has_intent,manual_tempos
+        selected=[join_index] if join_index is not None else list(range(len(context['sources'])-1))
+        if any(corrections.get(str(i),{}).get('vocal_confirmed') and has_intent(corrections.get(str(i))) for i in selected):
+            tempos,target=manual_tempos(context['records'],corrections)
+            for i in selected:
+                row=corrections.get(str(i),{})
+                if not row.get('vocal_confirmed') or not has_intent(row):continue
+                result=estimate(*context['records'][i:i+2],row,seconds=context['seconds'],
+                                source_bpms=tempos[i:i+2],target_bpm=target)
+                if result['status']!='estimated':raise ValueError(result['review_items'][0]['message'])
         payload = deepcopy(parent['payload'])
         payload.update(parent_job_id=identity,review_revision=expected_revision,corrections=corrections,
                        foundation_records=context['records'],baseline=True)

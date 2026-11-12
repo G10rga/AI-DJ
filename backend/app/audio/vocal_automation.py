@@ -11,8 +11,9 @@ def relative_gain(plan, source_index, times):
         join = plan['joins'][source_index-1]
         entry, fade, end = (join[k] for k in ('entry_seconds', 'fade_start_seconds', 'end_seconds'))
         if join['candidate']['recipe'] == 'protected_vocal':
-            incoming = np.where(times < fade, .25*np.clip((times-entry)/(fade-entry), 0, 1),
-                .25+.75*np.clip((times-fade)/(end-fade), 0, 1))
+            bed=join['candidate'].get('incoming_gain_at_outgoing_fade',.25)
+            incoming = np.where(times < fade, bed*np.clip((times-entry)/(fade-entry), 0, 1),
+                bed+(1-bed)*np.clip((times-fade)/(end-fade), 0, 1))
         elif join['candidate']['recipe'] == 'plain_crossfade':
             incoming = np.clip((times-entry)/(end-entry), 0, 1)
         else:

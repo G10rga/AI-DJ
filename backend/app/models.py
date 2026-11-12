@@ -104,7 +104,8 @@ class ImprovedPlan:
         plan=report['plan']
         return cls(plan,report['preparations'],[j['protected_interval'] for j in plan['joins']],
             [s['reference'] for s in plan['sources']],
-            {'version':'linear-master-handoff-1','joins':plan['joins'],'post_mix_gain_db':report['post_mix_gain_db']})
+            {'version':'linear-master-handoff-2' if plan['version']=='vocal-preserving-planner-2' else 'linear-master-handoff-1',
+             'joins':plan['joins'],'post_mix_gain_db':report['post_mix_gain_db']})
 
     def to_json(self):
         if self.schema_version!=2 or self.recipe_plan.get('pipeline')!='improved-transitions-1':

@@ -171,9 +171,12 @@ def create_app(settings=None):
 
     @app.post('/api/v1/learning/jobs/{identity}/transition-review/{action}')
     async def transition_review_action(identity:str,action:str,request:Request):
-        from .transition_review import save,enqueue,choose_default
+        from .transition_review import save,enqueue,choose_default,placement
         try:
             payload=await workflow_payload(request)
+            if action=='placement':
+                return await run_in_threadpool(placement,workflow,identity,payload.get('expected_revision'),
+                    payload.get('corrections'),payload.get('join_index'))
             if action=='save': return save(workflow,identity,payload.get('expected_revision'),payload.get('corrections'))
             if action=='preview':
                 if type(payload.get('join_index')) is not int: raise ValueError('Choose a valid transition')

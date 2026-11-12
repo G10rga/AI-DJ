@@ -1,7 +1,7 @@
 # Improve transition quality in the main app
 
 Date: 2026-11-12  
-Status: milestones 1–3 complete; milestone 4 listening acceptance is next.
+Status: milestones 1–3 complete; milestone 4 timing regressions fixed; remaining source reviews and owner listening acceptance pending.
 Project: `C:/Users/user/Documents/GitHub/AI-DJ`  
 Local data: `D:/AI-DJ-data`
 
@@ -169,7 +169,7 @@ inferred. The updated main application is available at http://127.0.0.1:8005.
 
 ## Milestone 4 — Listening acceptance and default promotion
 
-- [ ] Retain the improved At Night → Stupidisco example as a regression reference.
+- [x] Retain the improved At Night → Stupidisco example as a regression reference.
 - [ ] Freeze five unfamiliar pairs covering different vocal/rhythmic situations
   before tuning on their results. Distinguish regressions from independent tests.
 - [ ] Produce loudness-matched comparisons against the plain-crossfade baseline.
@@ -181,6 +181,19 @@ inferred. The updated main application is available at http://127.0.0.1:8005.
   checks. If evaluation examples drive tuning, use fresh examples for subsequent
   independent quality claims.
 - [ ] Obtain explicit owner approval before switching the persisted default.
+
+Execution: five unfamiliar-to-this-pipeline pairs and a fixed five-song order are frozen
+before new results. All six original jobs finished as Needs review; diagnosis
+found vocal-activity constraints block all five pairs. Source-boundary listening,
+matched comparisons, continuous-set playback and owner verdicts remain pending.
+See [docs/listening-acceptance.md](docs/listening-acceptance.md).
+
+Timing follow-up: fixed short-context/level-sensitive detector false positives
+using a fixed 24-second analysis context and consistent input levels. Forty
+targeted tests, five exact-plan real replay cases and four deliberately corrupted
+audio cases passed their expected outcomes. Latest corrected short-edit preview
+is playable; other source reviews/full-set listening and default approval remain
+pending. Replay cases are regressions, not five new independent pair results.
 
 Completion: the improved pipeline is usable in the main app, passes the technical
 checks below and receives actual listening approval for default promotion.
@@ -261,6 +274,7 @@ Technical success is necessary, but musical acceptance requires listening.
 | 2026-11-12 | Milestone 1 completed | Shared registered-pair analysis service, new immutable profile, verified MDX cache, float screening, source-relative vocal bins with actual coverage, distinct quiet/structural/phrase candidates and source-wide bar fits. Real Beat This/MERT/MDX validation on Edge of Desire / It's Not Right But It's Okay passed; repeat calls returned identical evidence and all 3 prior predictions were unchanged. The refactored At Night/Stupidisco runner passed prepared and encoded timing gates, retaining raw peaks 1.429/1.058 before gain and final -20 LUFS / -4.46 dBTP. See docs/transition-foundation.md for reports and limitations. | Begin milestone 2. No listening acceptance, new effects, default promotion or commits. |
 | 2026-11-12 | Milestone 2 completed | Added bounded vocal-preserving proposals, two recipes, global continuous set selection, shared float envelopes/renderer, isolated original/prepared/encoded timing checks and opt-in backend job dispatch for Generate/Compare. Full suite 193 tests: 187 passed, six skips; final 15 planner/timing tests passed. Real Generate and both same-cue Compare recipes passed 30 timing checks each; an unsupported second pair returned review without audio. See docs/vocal-planner.md. | Milestone 3: public experimental option, durable needs_review, correction/preview/resume/media integration and pinned plan persistence. Listening acceptance/default promotion remain later milestones. |
 | 2026-11-12 | Milestone 3 completed | Public experimental pipeline selector, durable review/preview jobs, revisioned source corrections, linked resume, version-2 saved plans, protected publication/media routes, existing Mixes/Compare playback and explicit default approval. Full suite 201 tests: 195 passed, six skips; final review and playback checks passed. Isolated real browser/audio-worker flow passed correction/preview/play/resume/reload/download/cancel/history and listening-only comparison feedback; 1440/768/390px inspection had zero failures. See docs/transition-review.md. | Milestone 4 listening acceptance and explicit owner default approval. Main app on 8005; default remains legacy-v1. No commits or owner test votes. |
+| 2026-11-12 | Milestone 4 started | Retained hash-verified At Night/Stupidisco regression; froze ten distinct new-to-improved-pipeline sources in five ordered pairs and one five-song integration order. Queued five comparisons and one continuous set through the existing single worker. Immutable manifest, resumable report and no-vote/default guards added. | Model analysis, baseline comparison coverage, actual owner verdicts, corrections, full-set listening and explicit default approval remain pending. |
 
 Implementation notes after milestone 1:
 

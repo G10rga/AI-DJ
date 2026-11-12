@@ -24,7 +24,7 @@ def check_live(live):
         raise RuntimeError('Improved transition job was cancelled or its lease expired')
 
 
-def independent_timing(prepared, decoded, plan, records, settings, work):
+def independent_timing(prepared, decoded, plan, records, settings, work, original_paths=None, preparation_gains=None):
     runtime = settings.data_root/('timeline/venv/Scripts/python.exe' if os.name == 'nt' else 'timeline/venv/bin/python')
     if not runtime.exists():
         raise ValueError('Independent timing runtime is unavailable')
@@ -32,6 +32,14 @@ def independent_timing(prepared, decoded, plan, records, settings, work):
         'prepared_paths': [str(path) for path in prepared], 'prepared_sha256': [sha256_file(path) for path in prepared],
         'encoded_pcm': str(decoded), 'encoded_pcm_sha256': sha256_file(decoded),
         'source_markers': [{kind: record['effective'][kind]['times'] for kind in ('beats', 'downbeats')} for record in records]}
+    request['detector_policy_sha256'] = sha256_file(PROJECT_ROOT/'backend/app/audio/timing_input.py')
+    request['source_marker_revisions']=[record['revision'] for record in records]
+    if plan.get('version')=='vocal-preserving-planner-2' and (work/'mix.wav').exists():
+        request.update(mixed_pcm=str(work/'mix.wav'),mixed_pcm_sha256=sha256_file(work/'mix.wav'))
+    if original_paths is not None:
+        request.update(original_paths=[str(path) for path in original_paths],
+            original_sha256=[sha256_file(path) for path in original_paths],
+            preparation_gains=preparation_gains, ffmpeg=settings.ffmpeg)
     request_path, result = work/'timing-request.json', work/'timing-result.json'
     request_path.write_text(json.dumps(request, allow_nan=False), encoding='utf-8')
     subprocess.run([str(runtime), '-m', 'scripts.transition_timing_worker', str(request_path), str(result)],
@@ -40,9 +48,32 @@ def independent_timing(prepared, decoded, plan, records, settings, work):
     if (audit.get('prepared_sha256') != request['prepared_sha256']
             or audit.get('encoded_pcm_sha256') != request['encoded_pcm_sha256']
             or audit.get('plan_id') != plan['id']
+            or audit.get('original_sha256') != request.get('original_sha256')
+            or audit.get('detector_policy_sha256') != request['detector_policy_sha256']
+            or audit.get('source_marker_revisions') != request['source_marker_revisions']
+            or audit.get('mixed_pcm_sha256') != request.get('mixed_pcm_sha256')
             or audit.get('worker_sha256') != sha256_file(PROJECT_ROOT/'scripts/transition_timing_worker.py')):
         raise ValueError('Independent timing report is for different audio')
     return audit
+
+
+def timing_failure_message(audit):
+    for join in audit.get('joins', []):
+        for side, support in enumerate(join.get('bar_support', [])):
+            if support.get('status') != 'regular':
+                return (f'The {"outgoing" if side == 0 else "incoming"} song has uncertain beat/bar evidence at this handoff. '
+                    'Review its timing in the timeline editor or choose a steadier passage. No audio was published.')
+        failures = [c for c in join.get('checks', []) if c.get('status') != 'aligned' and not c.get('resolved_by')]
+        if any(c.get('comparison') == 'prepared_pair' for c in failures):
+            return ('The songs could not be verified on the same beat/bar grid at this handoff. '
+                'Review their timing in the timeline editor or choose a steadier passage. No audio was published.')
+        if any(c.get('comparison', '').startswith(('original_mapping','original_gain_mapping')) for c in failures):
+            return ('The original and stretched source timing could not be verified at this handoff. '
+                'Review source timing in the timeline editor. No audio was published.')
+        if failures or any(c.get('status') != 'aligned' for c in join.get('solo_checks', [])):
+            return ('The encoded preview timing could not be verified against the prepared songs. '
+                'The failed timing checks are retained in this attempt. No audio was published.')
+    return 'Independent rhythm evidence is incomplete for this preview. No audio was published.'
 
 
 def mix_float(prepared, plan, destination, *, live=lambda: True):
@@ -128,10 +159,11 @@ def render_plan(plan, records, paths, settings, storage, *, live=lambda: True,
             if peak >= 1 or final['true_peak_dbfs'] > -1:
                 raise AudioError('Encoded peak validation failed')
             check_live(live)
-            audit = timing(prepared, decoded, plan, records, settings, directory)
+            audit = timing(prepared, decoded, plan, records, settings, directory,
+                           paths, [p['gain_db'] for p in preparations])
             if audit.get('status') != 'validated' or len(audit.get('joins', [])) != len(plan['joins']):
                 return {'status': 'needs_review', 'review_items': [review('independent_timing_failed',
-                    'Actual stretched or encoded beat/bar evidence is inconsistent or missing. No audio was published.', details=audit)],
+                    timing_failure_message(audit), details=audit)],
                     'plan': plan, 'timing': audit}
             for path, source in zip(paths, plan['sources']):
                 if sha256_file(path) != source['reference']['source_sha256']:
@@ -145,6 +177,8 @@ def render_plan(plan, records, paths, settings, storage, *, live=lambda: True,
                 'audio_sha256': sha256_file(encoded), 'output': str(destination), 'listening_accepted': None}
             modules = ['backend/app/planning/vocal_preserving.py', 'backend/app/vocal_rendering.py',
                 'backend/app/audio/vocal_automation.py', 'backend/app/audio/beat_validation.py',
+                'backend/app/audio/timing_input.py',
+                'backend/app/planning/manual_handoff.py', 'backend/app/audio/encoding_timing.py',
                 'scripts/transition_timing_worker.py']
             report['implementation_sha256'] = {name: sha256_file(PROJECT_ROOT/name) for name in modules}
             # Only validated audio crosses out of scratch space. Existing files
