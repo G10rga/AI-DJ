@@ -1,7 +1,7 @@
 # Improve transition quality in the main app
 
 Date: 2026-11-12  
-Status: saved implementation plan; implementation has not started.  
+Status: milestone 1 implemented and model-backed validation passed; milestone 2 is next.
 Project: `C:/Users/user/Documents/GitHub/AI-DJ`  
 Local data: `D:/AI-DJ-data`
 
@@ -80,17 +80,17 @@ hardcoded experiment script or copy its timestamps into the main planner.
 
 ## Milestone 1 — Shared audio and analysis foundation
 
-- [ ] Extract reusable stereo float preparation with real context around the
+- [x] Extract reusable stereo float preparation with real context around the
   stretched excerpt and constant gain staging before encoding.
-- [ ] Remove intermediate 16-bit conversion from the new audible rendering path.
+- [x] Remove intermediate 16-bit conversion from the new audible rendering path.
   Keep separate PCM copies only for analysis tools that require them.
-- [ ] Reuse Beat This, MDX and MERT through their existing isolated workers.
+- [x] Reuse Beat This, MDX and MERT through their existing isolated workers.
   Cache evidence by original audio hash, model/configuration and analysis version.
-- [ ] Fit local tempo across multiple observed beats, avoiding rounded-timestamp
+- [x] Fit local tempo across multiple observed beats, avoiding rounded-timestamp
   median bias. Maintain consistent bar numbering across analysis chunks.
-- [ ] Keep distinct beat, downbeat, vocal-activity, quieter-passage and structural
+- [x] Keep distinct beat, downbeat, vocal-activity, quieter-passage and structural
   change evidence. Mark uncertain structural/phrase boundaries as candidates.
-- [ ] Preserve old cached predictions and human corrections; new analysis uses a
+- [x] Preserve old cached predictions and human corrections; new analysis uses a
   new version/configuration and never overwrites earlier evidence.
 
 Completion: any registered pair can use this foundation without experiment
@@ -205,7 +205,7 @@ is an effects engine; musical placement remains the planner's responsibility.
 
 ## Required technical test scenarios
 
-- [ ] Native/stretched peaks above 0dBFS remain intact in float preparation and
+- [x] Native/stretched peaks above 0dBFS remain intact in float preparation and
   are gain-staged safely before encoding.
 - [ ] Quantized beat timestamps, half-beat errors, bar-phase errors, half-tempo
   mistakes, local drift and irregular/missing markers are handled explicitly.
@@ -245,3 +245,43 @@ Technical success is necessary, but musical acceptance requires listening.
 | Date | Milestone | Changes and validation | Remaining work |
 |---|---|---|---|
 | 2026-11-12 | Plan saved | Owner choices captured; no implementation started. | Begin milestone 1 when execution is requested. |
+| 2026-11-12 | Milestone 1, first slice | Added versioned context-aware stereo float preparation and fixed gain staging; handoff runner uses the shared service. Extracted observed local bar fits with source-wide indices and conservative phase/drift checks. Real synthetic DSP tests cover peaks above full scale, tempo/pitch, stereo, bounds, explicit inaudible padding and short/nonfinite decode rejection. | Finish versioned worker/evidence integration (including relative vocal levels and coverage). Generate/Compare integration remains in later milestones. No new listening evidence or default promotion. |
+| 2026-11-12 | Milestone 1 completed | Shared registered-pair analysis service, new immutable profile, verified MDX cache, float screening, source-relative vocal bins with actual coverage, distinct quiet/structural/phrase candidates and source-wide bar fits. Real Beat This/MERT/MDX validation on Edge of Desire / It's Not Right But It's Okay passed; repeat calls returned identical evidence and all 3 prior predictions were unchanged. The refactored At Night/Stupidisco runner passed prepared and encoded timing gates, retaining raw peaks 1.429/1.058 before gain and final -20 LUFS / -4.46 dBTP. See docs/transition-foundation.md for reports and limitations. | Begin milestone 2. No listening acceptance, new effects, default promotion or commits. |
+
+Implementation notes after milestone 1:
+
+- `backend/app/audio/float_prepare.py`: reusable preparation in bounded-memory
+  blocks. It hashes source/result, preserves float peaks, and never pads a short
+  decode to invent audible samples. A fresh output path is required.
+- `backend/app/audio/bar_evidence.py`: fits source-wide observed markers without
+  assuming phrase completion. Research `stable_spans` delegates to this service
+  while retaining its older leading/trailing-context defaults.
+- `scripts/render_vocal_handoff.py` now delegates preparation and constant gain
+  to the shared service. A fresh regression revision passed model-backed timing,
+  format/peak/dropout checks; reviewed originals were retained.
+- `backend/app/timeline_analysis.py` owns application analysis and
+  `analyze_registered_pair`; `scripts/analyze_timeline.py` remains a compatible
+  CLI wrapper. The opt-in `transition-foundation-1` profile keys new evidence by
+  original hash, pinned models, runtime/configuration and analysis implementation.
+  Experimental caches are explicitly selected and do not hide legacy timelines
+  or human corrections. Corrections stay pinned to their original analysis ID.
+- `audio/analysis_evidence.py` provides relative vocal bins, complete-interval
+  queries, quiet candidates and separate structure/phrase candidates. The worker
+  records actual source/context/stem provenance and source-time coverage. Missing
+  evidence stays unknown. `audio/separation_cache.py` verifies hashes and model/
+  parameter/runtime identity in its own namespace, preserving historical caches.
+- The legacy main-app renderer still uses its existing preparation. The float
+  path is ready for the experimental pipeline; it has not been activated in
+  Generate/Compare. Required end-to-end/listening scenarios remain unchecked.
+- Validation: 77 targeted tests ran successfully (75 passed, two native
+  Pedalboard tests skipped in the application runtime), including timeline
+  immutability/corrections, existing rendering/publication, pair comparisons,
+  independent timing and the nine new preparation/bar-evidence tests. Changed
+  Python modules compile. No native effects implementation changed.
+- Completion validation also passed 86 targeted tests (84 passed, two native
+  effects skips) and a subsequent 34-test run covering profile selection and real
+  LUFS/true-peak gain staging before MP3 encoding. Final full suite: 177 tests,
+  171 passed, six isolated-runtime skips; a final nine-test foundation rerun
+  passed after the catalog hash guard. Reports and limits are recorded
+  in docs/transition-foundation.md. The new model evidence is not listening
+  approval, semantic phrase recognition or an end-to-end main-app planner.

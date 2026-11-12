@@ -63,6 +63,20 @@ def validate_timeline(data):
                 raise ValueError('Invalid vocal activity evidence')
     for section in data.get('sections', []):
         validate_times([section['time']], duration)
+    if data.get('config', {}).get('analysis_profile') == 'transition-foundation-1':
+        from .audio.analysis_evidence import validate_vocal_rows, VERSION as EVIDENCE_VERSION
+        validate_vocal_rows(data.get('vocal_activity', []))
+        if data.get('analysis_evidence', {}).get('version') != EVIDENCE_VERSION:
+            raise ValueError('Missing versioned foundation evidence')
+        chunks = {row['index']: row for row in data.get('vocal_chunks', [])}
+        for row in data.get('vocal_activity', []):
+            chunk = chunks.get(row.get('chunk_index'))
+            if (chunk is None or chunk.get('original_sha256') != data['content_hash']
+                    or not chunk['context_source_interval'][0] <= row['start'] < row['end'] <= chunk['context_source_interval'][1]+1e-6
+                    or not chunk['core_interval'][0] <= row['start'] < row['end'] <= chunk['core_interval'][1]+1e-6
+                    or not chunk.get('context_sha256') or not chunk.get('stem_sha256', {}).get('vocals')
+                    or chunk.get('configuration', {}).get('model') != data['config'].get('separator')):
+                raise ValueError('Missing or inconsistent vocal source/model/coverage provenance')
     return data
 
 
@@ -89,6 +103,9 @@ class TimelineStore:
 
     def save(self, source, prediction, config):
         validate_timeline(prediction)
+        if (prediction.get('config', {}).get('analysis_profile') == 'transition-foundation-1'
+                and prediction['config'] != config):
+            raise ValueError('Foundation prediction/configuration mismatch')
         source = Path(source).resolve(strict=True)
         with source.open('rb') as audio:
             if hashlib.file_digest(audio, 'sha256').hexdigest() != prediction['content_hash']:
@@ -108,14 +125,19 @@ class TimelineStore:
             c.execute('INSERT OR IGNORE INTO track_timelines VALUES (?,?)', (track_id, key))
         return {'track_id': track_id, 'timeline_id': key}
 
-    def tracks(self):
+    def tracks(self, *, profile=None):
+        # Experimental evidence is explicitly selected; merely caching it must
+        # not hide the existing editor's latest prediction/human corrections.
+        selection = ("COALESCE(json_extract(tl.config_json,'$.analysis_profile'),'') != 'transition-foundation-1'"
+                     if profile is None else "json_extract(tl.config_json,'$.analysis_profile') = ?")
+        newest_selection = selection.replace('tl.config_json', 'newest.config_json')
         with self.database.connection() as c:
             return [dict(row) for row in c.execute('''SELECT t.id,t.original_name,tt.timeline_id,tl.created_at
                 FROM tracks t JOIN track_timelines tt ON tt.track_id=t.id
                 JOIN timelines tl ON tl.id=tt.timeline_id
-                WHERE tl.rowid=(SELECT newest.rowid FROM timelines newest JOIN track_timelines link ON link.timeline_id=newest.id
-                    WHERE link.track_id=t.id ORDER BY newest.created_at DESC,newest.rowid DESC LIMIT 1)
-                ORDER BY tl.created_at DESC,t.original_name''')]
+                WHERE '''+selection+''' AND tl.rowid=(SELECT newest.rowid FROM timelines newest JOIN track_timelines link ON link.timeline_id=newest.id
+                    WHERE link.track_id=t.id AND '''+newest_selection+''' ORDER BY newest.created_at DESC,newest.rowid DESC LIMIT 1)
+                ORDER BY tl.created_at DESC,t.original_name''', () if profile is None else (profile, profile))]
 
     def source(self, track_id):
         with self.database.connection() as c:
@@ -124,12 +146,15 @@ class TimelineStore:
             raise KeyError(track_id)
         return Path(json.loads(row[0])['external_path']), row[1]
 
-    def for_content(self, content_hash):
+    def for_content(self, content_hash, *, profile=None):
         """Resolve a current analysis by audio identity, including manual overrides."""
+        selection = ("COALESCE(json_extract(tl.config_json,'$.analysis_profile'),'') != 'transition-foundation-1'"
+                     if profile is None else "json_extract(tl.config_json,'$.analysis_profile') = ?")
         with self.database.connection() as c:
             row = c.execute('''SELECT tt.track_id,tl.id FROM timelines tl
-                JOIN track_timelines tt ON tt.timeline_id=tl.id WHERE tl.content_hash=?
-                ORDER BY tl.created_at DESC,tl.rowid DESC,tt.track_id LIMIT 1''', (content_hash,)).fetchone()
+                JOIN track_timelines tt ON tt.timeline_id=tl.id WHERE tl.content_hash=? AND '''+selection+'''
+                ORDER BY tl.created_at DESC,tl.rowid DESC,tt.track_id LIMIT 1''',
+                (content_hash,) if profile is None else (content_hash, profile)).fetchone()
         if row is None:
             raise KeyError(content_hash)
         return self.get(row[0], row[1])

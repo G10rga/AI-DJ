@@ -66,7 +66,7 @@ def candidate_features(candidate,validation):
 def generate_pair(store,job,owner,progress):
     from .auditions import evaluate_pair
     from .planning.contextual import propose_pair
-    from scripts.analyze_timeline import analyze_timeline
+    from .timeline_analysis import analyze_timeline
     sources=job['payload']['sources'];records=[];paths={}
     live=lambda:store.live(job['id'],owner)
     for i,source in enumerate(sources):

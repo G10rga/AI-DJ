@@ -22,7 +22,7 @@ def load_records(paths, settings, analyze_missing=False):
         except KeyError:
             if not analyze_missing:
                 raise ValueError(f'No musical timeline for {source.name}; analyze it or use --analyze-missing')
-            from scripts.analyze_timeline import analyze_timeline
+            from backend.app.timeline_analysis import analyze_timeline
             analyze_timeline(source, settings, with_vocals=True)
             record = store.for_content(digest)
         # Uploaded entries, including duplicate audio, retain separate identities.

@@ -16,15 +16,18 @@ from backend.app.db import Database
 RENDERER_VERSION = 'stem-set-2'
 
 
-def separate_local(path, pointer, settings, storage):
+def separate_local(path, pointer, settings, storage, *, verified=False):
     base = storage.root/'separation'
     candidates = [base/'gpu-venv/Scripts/python.exe', base/'venv/Scripts/python.exe', base/'venv/bin/python']
     worker = next((p for p in candidates if p.exists()), None)
     if worker is None:
         raise ValueError('Set up the optional separator environment before rendering stems')
-    subprocess.run([str(worker), '-m', 'scripts.separate_vocals', str(path),
+    command = [str(worker), '-m', 'scripts.separate_vocals', str(path),
                     '--model-dir', str(base/'models'), '--cache-root', str(base/'stems'),
-                    '--result-file', str(pointer)], check=True, timeout=1800, cwd=PROJECT_ROOT)
+                    '--result-file', str(pointer)]
+    if verified:
+        command.append('--verified-cache')
+    subprocess.run(command, check=True, timeout=1800, cwd=PROJECT_ROOT)
     return json.loads(pointer.read_text(encoding='utf-8'))
 
 

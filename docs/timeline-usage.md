@@ -1,5 +1,10 @@
 # Musical timeline analysis and review
 
+For the opt-in transition-foundation analysis profile, verified float vocal
+evidence and shared registered-pair service, see
+[Shared transition foundation](transition-foundation.md). Legacy analysis and
+the current timeline editor keep their existing prediction selection.
+
 Use the repository at `C:\Users\user\Documents\GitHub\AI-DJ`.
 
 ```powershell

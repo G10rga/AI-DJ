@@ -14,7 +14,13 @@ def main():
     parser.add_argument('--model-dir', type=Path, required=True)
     parser.add_argument('--cache-root', type=Path, required=True)
     parser.add_argument('--result-file', type=Path, required=True)
+    parser.add_argument('--verified-cache', action='store_true')
     args = parser.parse_args()
+    if args.verified_cache:
+        from backend.app.audio.separation_cache import separate_verified
+        manifest = separate_verified(args.source, args.model_dir, args.cache_root)
+        args.result_file.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+        return
     metadata = json.loads((args.model_dir/'selected_model.json').read_text(encoding='utf-8'))
     source_hash = sha256_file(args.source)
     key = hashlib.sha256(f'{VERSION}:{source_hash}:{metadata["sha256"]}'.encode()).hexdigest()

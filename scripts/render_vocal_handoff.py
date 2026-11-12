@@ -13,6 +13,7 @@ from beat_this.inference import Audio2Beats
 
 from backend.app.auditions import loudness
 from backend.app.audio.stretch import tempo_ratio
+from backend.app.audio.float_prepare import prepare_float_excerpt, preparation_gain, apply_constant_gain
 from backend.app.config import Settings
 from backend.app.research.beat_alignment import detect_prepared_alignment,require_alignment,marker_alignment
 from backend.app.research.steady_bars import stable_spans
@@ -66,32 +67,16 @@ def main():
     paths=[];windows=[];preparations=[]
     for i,(source,choice,ratio) in enumerate(zip(originals,selections,ratios)):
         origin=choice['source_cue']-entry*ratio
-        requested_start=origin-8*ratio;seek=max(0.,requested_start)
-        requested_end=origin+68*ratio
-        if requested_end>source['duration_seconds']:raise ValueError('Source context exceeds original')
-        padding=max(0.,-requested_start/ratio)
-        context=work/f'context-{i}.wav'
-        extracted=work/f'stretched-{i}.wav'
-        filters=f'aresample=44100,rubberband=tempo={ratio:.10f}:pitch=1:channels=together'
-        subprocess.run([settings.ffmpeg,'-v','error','-nostdin','-ss',str(seek),'-t',str(requested_end-seek),
-                        '-i',source['path'],'-af',filters,'-ac','2','-ar','44100','-c:a','pcm_f32le',str(extracted)],
-                       check=True,capture_output=True,timeout=180)
-        segment,rate=sf.read(extracted,dtype='float32',always_2d=True)
-        leading=round(padding*rate);expected=76*rate-leading
-        if abs(len(segment)-expected)>rate*.02:raise ValueError('Actual source stretch length mismatch')
-        # Only the portion before the original file begins is padded. Audio
-        # after its true start remains a single continuous stretched stream.
-        data=np.zeros((76*rate,2),dtype=np.float32)
-        count=min(len(segment),expected);data[leading:leading+count]=segment[:count]
-        sf.write(context,data,rate,subtype='FLOAT')
-        data=data[8*rate:68*rate]
-        if data.shape!=(60*44100,2) or not np.isfinite(data).all():raise ValueError('Invalid prepared window')
-        path=work/f'source-{i}.wav';sf.write(path,data,44100,subtype='FLOAT')
+        path=work/f'source-{i}.wav'
+        preparation=prepare_float_excerpt(source['path'],path,origin,60,
+            choice['source_bpm'],target,settings,inaudible_before=entry if i else 0.)
         level=loudness(path,settings)
-        gain=min(-20-level['integrated_lufs'],-3-level['true_peak_dbfs']);data*=10**(gain/20)
-        sf.write(path,data,44100,subtype='FLOAT')
+        gain=preparation_gain(level['integrated_lufs'],level['true_peak_dbfs'])
+        apply_constant_gain(path,gain)
+        data,rate=sf.read(path,dtype='float32',always_2d=True)
         preparations.append({'source_path':source['path'],'source_sha256':source['sha256'],'fit':choice,
-            'tempo_ratio':ratio,'source_at_preview_zero':origin,'leading_context_padding_seconds':padding,
+            'tempo_ratio':ratio,'source_at_preview_zero':origin,'preparation':preparation,
+            'leading_context_padding_seconds':max(0.,8-origin/ratio),
             'source_continuity':'Single continuous decode/stretch; no jumps or loops',
             'gain_db':gain,'prepared_sha256':digest(path)})
         paths.append(path);windows.append(data)

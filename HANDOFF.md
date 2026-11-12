@@ -1,13 +1,24 @@
 # Handoff — AI DJ Set Maker
 
-## Main-app improvement execution plan saved — 2026-11-12
+## Main-app improvement milestone 1 completed — 2026-11-12
 
 Read [plan.md](plan.md) for the current cross-session implementation checklist.
 Owner chose main-app quality first, correction by listening for uncertain joins,
 staged effects and default promotion only after listening validation/approval.
-The plan is saved; implementation has not started. Resume at milestone 1 when
-the owner requests execution. Existing experimental results/rejections below
-remain evidence and must be preserved.
+Milestone 1 is implemented: shared float preparation/fixed gain staging,
+source-wide multi-beat bar fits, application-owned registered-pair analysis,
+versioned isolated Beat This/MERT/MDX workers, verified MDX caches, relative vocal
+levels with actual coverage and separate quieter/structure/phrase candidates.
+Existing timelines/corrections remain immutable; experimental analysis requires
+explicit profile selection and does not replace the default editor/planner view.
+Real full-song analysis on Edge of Desire / It's Not Right But It's Okay passed,
+including identical cache reuse and preservation of 3 earlier predictions.
+The refactored handoff runner passed fresh model-backed timing and encoded-audio
+checks (-20 LUFS, -4.46 dBTP); reviewed reference/rejected artifacts remain intact.
+See [docs/transition-foundation.md](docs/transition-foundation.md) for interfaces,
+verification reports and limits. Resume at milestone 2 in plan.md. Main-app
+Generate/Compare integration, listening acceptance and default promotion remain
+later work. No new owner votes, effects, training labels or commits.
 
 ## Owner reports continuous handoff is better — 2026-11-12
 

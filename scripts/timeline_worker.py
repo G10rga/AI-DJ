@@ -12,6 +12,7 @@ from backend.app.audio.probe import run_audio
 from backend.app.audio.timeline_features import chunk_windows, merge_markers, feature_bins, section_candidates
 from backend.app.timelines import VERSION, validate_timeline, derive_bars
 from scripts.setup_timeline import sha256
+from backend.app.audio.analysis_evidence import PROFILE, VERSION as EVIDENCE_VERSION, vocal_bins, build_evidence
 
 
 def decode(source, output, start, end, rate, ffmpeg):
@@ -36,6 +37,7 @@ def main():
     os.environ['HF_HUB_OFFLINE'] = '1'
     from transformers import AutoConfig, AutoModel, Wav2Vec2FeatureExtractor
     config = request['config']
+    foundation = config.get('analysis_profile') == PROFILE
     models = root/'models'
     for group, base in (('mert', models/'mert'), ('beat_this', models)):
         for name, digest in config['models'][group]['files'].items():
@@ -59,15 +61,19 @@ def main():
     processor = Wav2Vec2FeatureExtractor.from_pretrained(str(models/'mert'), local_files_only=True)
     duration = request['duration']
     beat_chunks, down_chunks, features, embeddings, vocals = [], [], [], [], []
+    vocal_chunks, analysis_chunks = [], []
     with tempfile.TemporaryDirectory(dir=request['tmp_root'], prefix='timeline-worker-') as work:
         work = Path(work)
-        for index, (start, end, left, right) in enumerate(chunk_windows(duration)):
+        for index, (start, end, left, right) in enumerate(chunk_windows(duration, config['core_seconds'], config['context_seconds'])):
             print(f'Timeline {start:.0f}-{end:.0f}s / {duration:.0f}s', flush=True)
             samples = decode(request['source'], work/f'context-{index}.wav', left, right, 24000, request['ffmpeg'])
             with torch.inference_mode():
                 beats, downs = tracker(samples, 24000)
             beat_chunks.append([float(t)+left for t in beats if start <= float(t)+left < end])
             down_chunks.append([float(t)+left for t in downs if start <= float(t)+left < end])
+            if foundation:
+                analysis_chunks.append({'index': index, 'core_interval': [start, end], 'context_interval': [left, right],
+                    'beats': [float(t)+left for t in beats], 'downbeats': [float(t)+left for t in downs]})
             core = samples[round((start-left)*24000):round((end-left)*24000)]
             features.extend(feature_bins(core, 24000, start))
             for offset in range(0, len(core), 5*24000):
@@ -87,19 +93,44 @@ def main():
                 from backend.app.rendering import separate_local
                 stereo = work/f'stereo-{index}.wav'
                 run_audio([request['ffmpeg'], '-v', 'error', '-nostdin', '-ss', str(left), '-t', str(right-left),
-                           '-i', request['source'], '-ac', '2', '-ar', '44100', '-c:a', 'pcm_s16le', str(stereo)])
+                           '-i', request['source'], '-ac', '2', '-ar', '44100', '-c:a',
+                           'pcm_f32le' if foundation else 'pcm_s16le', str(stereo)])
                 settings = Settings(data_root=Path(request['data_root']), ffmpeg=request['ffmpeg'])
-                manifest = separate_local(stereo, work/f'stems-{index}.json', settings, Storage(settings.data_root))
-                with sf.SoundFile(manifest['vocals']) as audio:
-                    for t in np.arange(start, end, .5):
-                        audio.seek(round((float(t)-left)*audio.samplerate))
-                        block = audio.read(round(min(.5, end-float(t))*audio.samplerate), dtype='float32', always_2d=True)
-                        vocals.append({'start': float(t), 'end': min(end, float(t)+.5), 'rms': float(np.sqrt(np.mean(block**2)))})
+                manifest = separate_local(stereo, work/f'stems-{index}.json', settings, Storage(settings.data_root), verified=foundation)
+                if foundation:
+                    if (manifest['source_sha256'] != sha256(stereo) or manifest['model'] != config['separator']
+                            or manifest['configuration']['packages'] != config['separator_packages']
+                            or manifest['configuration']['adapter_sha256'] != config['separator_adapter_sha256']
+                            or manifest['configuration']['cache_sha256'] != config['separator_cache_sha256']):
+                        raise ValueError('Separator returned mismatched source/model/runtime provenance')
+                    for name in ('instrumental', 'vocals'):
+                        if sha256(Path(manifest[name])) != manifest['stem_sha256'][name]:
+                            raise ValueError('Separated stem changed before activity analysis')
+                    master, rate = sf.read(stereo, dtype='float32', always_2d=True)
+                    vocal, vocal_rate = sf.read(manifest['vocals'], dtype='float32', always_2d=True)
+                    if rate != vocal_rate or len(master) != manifest['frames']:
+                        raise ValueError('Separation timing mismatch')
+                    vocals.extend(vocal_bins(vocal, master, rate, left, start, end, chunk_index=index))
+                    vocal_chunks.append({'index': index, 'core_interval': [start, end],
+                        'source_offset_seconds': left, 'context_source_interval': [left, left+len(master)/rate],
+                        'original_sha256': request['content_hash'], 'context_sha256': manifest['source_sha256'],
+                        'stem_sha256': manifest['stem_sha256'], 'configuration': manifest['configuration'],
+                        'sample_rate': rate, 'frames': len(master), 'reconstruction_error': manifest['reconstruction_error']})
+                else:
+                    with sf.SoundFile(manifest['vocals']) as audio:
+                        for t in np.arange(start, end, .5):
+                            audio.seek(round((float(t)-left)*audio.samplerate))
+                            block = audio.read(round(min(.5, end-float(t))*audio.samplerate), dtype='float32', always_2d=True)
+                            vocals.append({'start': float(t), 'end': min(end, float(t)+.5), 'rms': float(np.sqrt(np.mean(block**2)))})
     beats = merge_markers(beat_chunks)
     downs = merge_markers(down_chunks)
     downs = sorted(set(min(beats, key=lambda b: abs(b-t)) for t in downs if beats and min(abs(b-t) for b in beats) <= .05))
     layer = lambda times, provenance: {'times': times, 'confidence': None, 'provenance': provenance}
-    if vocals:
+    if foundation:
+        vocal_status = {'available': bool(vocals), 'ratio_limit': .15, 'master_rms_floor': 1e-6,
+                        'provenance': 'Verified MDX float stems / original master; per-bin coverage; leakage possible',
+                        'phrase_completion': 'unknown'}
+    elif vocals:
         levels = np.array([v['rms'] for v in vocals])
         threshold = max(.008, float(np.percentile(levels, 80))*.2)
         for row in vocals:
@@ -118,6 +149,10 @@ def main():
                            'Beat chunk seams and 4/4 assumptions require review; phrases are candidates.',
                            'Energy/transient/chroma evidence does not identify lyrics, drums or named sections.']}
     result['bars'] = derive_bars(result)
+    if foundation:
+        result['vocal_chunks'] = vocal_chunks
+        result['analysis_chunks'] = analysis_chunks
+        result['analysis_evidence'] = build_evidence(result)
     validate_timeline(result)
     if sha256(request['source']) != request['content_hash']:
         raise ValueError('Source changed during timeline analysis')
