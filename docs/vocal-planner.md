@@ -1,5 +1,9 @@
 # Vocal-preserving planner and shared renderer
 
+Milestone 3 application/review integration is now complete; see
+[Transition review](transition-review.md) for the current browser workflow. The
+backend behavior and milestone-2 evidence below remain retained.
+
 Milestone 2 supplies the experimental backend for Generate and Compare. Both
 use the same proposals, continuous set geometry, sample envelopes, float renderer
 and independent timing gate. Default/legacy jobs are unchanged. Public UI

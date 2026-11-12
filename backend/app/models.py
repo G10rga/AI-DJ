@@ -87,3 +87,34 @@ class MixPlan:
         plan = cls(**data)
         plan.validate()
         return plan
+
+
+@dataclass(frozen=True)
+class ImprovedPlan:
+    """Version 2 persists exact relative automation and evidence with the recipe."""
+    recipe_plan: dict
+    preparation: list
+    protected_intervals: list
+    evidence_references: list
+    relative_gain_automation: dict
+    schema_version: int = 2
+
+    @classmethod
+    def from_report(cls, report):
+        plan=report['plan']
+        return cls(plan,report['preparations'],[j['protected_interval'] for j in plan['joins']],
+            [s['reference'] for s in plan['sources']],
+            {'version':'linear-master-handoff-1','joins':plan['joins'],'post_mix_gain_db':report['post_mix_gain_db']})
+
+    def to_json(self):
+        if self.schema_version!=2 or self.recipe_plan.get('pipeline')!='improved-transitions-1':
+            raise ValueError('Unsupported improved plan version')
+        return json.dumps(asdict(self),sort_keys=True,allow_nan=False)
+
+    @classmethod
+    def from_json(cls,value):
+        plan=cls(**json.loads(value)); plan.to_json(); return plan
+
+
+def read_plan(value):
+    return ImprovedPlan.from_json(value) if json.loads(value).get('schema_version')==2 else MixPlan.from_json(value)

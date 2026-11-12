@@ -74,6 +74,10 @@ def create_app(settings=None):
     def compare_page():
         return FileResponse(ASSETS/'compare.html')
 
+    @app.get('/transition-review/{identity}')
+    def transition_review_page(identity:str):
+        return FileResponse(ASSETS/'transition-review.html')
+
     @app.get('/api/v1/comparisons')
     def comparisons_state():
         from .pair_comparisons import preferences,preference_model
@@ -82,15 +86,19 @@ def create_app(settings=None):
             identities=[r[0] for r in c.execute("SELECT id FROM workflow_jobs WHERE kind='pair_audition' ORDER BY rowid DESC LIMIT 30")]
         jobs=[workflow.job(identity) for identity in identities]
         for job in jobs:
-            job['review']=prefs.review_state(job['id'])
-        return {'library':workflow.catalog(),'jobs':jobs,'model':preference_model(workflow)}
+            if job['payload'].get('pipeline')=='improved-transitions-1':
+                from .transition_review import listening_state
+                job['review']=listening_state(workflow,job['id'])
+            else: job['review']=prefs.review_state(job['id'])
+        from .transition_review import pipeline
+        return {'library':workflow.catalog(),'jobs':jobs,'model':preference_model(workflow),'default_pipeline':pipeline(workflow)}
 
     @app.post('/api/v1/comparisons')
     async def enqueue_comparison(request:Request):
         from .pair_comparisons import enqueue_pair
         try:
             payload=await workflow_payload(request)
-            return enqueue_pair(workflow,payload.get('track_ids'),payload.get('use_preferences',False))
+            return enqueue_pair(workflow,payload.get('track_ids'),payload.get('use_preferences',False),payload.get('pipeline'))
         except (ValueError,TypeError,KeyError) as exc:raise HTTPException(422,str(exc))
 
     @app.get('/api/v1/comparisons/{identity}/audio/{slot}')
@@ -125,7 +133,8 @@ def create_app(settings=None):
                     digest=track.get('source_hash') or (track['sources'][0]['content_hash'] if track['sources'] else None)
                     source=next((s for s in songs if s['content_hash']==digest),None)
                     if source:defaults.append(source['id'])
-            return {'references':library,'readiness':workflow.readiness(chosen) if chosen else None,
+            from .transition_review import pipeline
+            return {'references':library,'readiness':workflow.readiness(chosen) if chosen else None,'default_pipeline':pipeline(workflow),
                     'models':workflow.models(),'jobs':workflow.jobs(),'library':songs,'default_track_ids':defaults}
         except KeyError:
             raise HTTPException(404,'Reference draft not found')
@@ -149,9 +158,48 @@ def create_app(settings=None):
         try:
             payload=await workflow_payload(request)
             return workflow.enqueue_test(payload.get('model_id'),payload.get('track_ids'),
-                                         payload.get('seconds',72),payload.get('baseline',False))
+                                         payload.get('seconds',72),payload.get('baseline',False),payload.get('pipeline'))
         except KeyError:raise HTTPException(404,'Selected model or song is unavailable')
         except (ValueError,TypeError) as exc:raise HTTPException(422,str(exc))
+
+    @app.get('/api/v1/learning/jobs/{identity}/transition-review')
+    def transition_review_state(identity:str):
+        from .transition_review import state
+        try: return state(workflow,identity)
+        except KeyError: raise HTTPException(404,'Review unavailable')
+        except ValueError as exc: raise HTTPException(409,str(exc))
+
+    @app.post('/api/v1/learning/jobs/{identity}/transition-review/{action}')
+    async def transition_review_action(identity:str,action:str,request:Request):
+        from .transition_review import save,enqueue,choose_default
+        try:
+            payload=await workflow_payload(request)
+            if action=='save': return save(workflow,identity,payload.get('expected_revision'),payload.get('corrections'))
+            if action=='preview':
+                if type(payload.get('join_index')) is not int: raise ValueError('Choose a valid transition')
+                return enqueue(workflow,identity,payload.get('expected_revision'),join_index=payload['join_index'])
+            if action=='resume': return enqueue(workflow,identity,payload.get('expected_revision'))
+            if action=='make-default': return choose_default(workflow,identity,payload.get('approved'))
+            raise HTTPException(404,'Review action unavailable')
+        except KeyError: raise HTTPException(404,'Review unavailable')
+        except (ValueError,TypeError) as exc: raise HTTPException(409 if 'reload' in str(exc) else 422,str(exc))
+
+    @app.get('/api/v1/learning/jobs/{identity}/transition-review/sources/{index}/audio')
+    def transition_original(identity:str,index:int):
+        from .transition_review import source_audio
+        try: return FileResponse(source_audio(workflow,identity,index))
+        except (KeyError,OSError): raise HTTPException(404,'Original unavailable')
+        except ValueError as exc: raise HTTPException(409,str(exc))
+
+    @app.get('/api/v1/learning/jobs/{identity}/audio/{slot}')
+    def improved_job_audio(identity:str,slot:str,download:bool=False):
+        from .transition_review import media
+        try:
+            path=media(workflow,identity,slot)
+            return FileResponse(path,media_type='audio/mpeg',filename=path.name,
+                                content_disposition_type='attachment' if download else 'inline')
+        except (KeyError,OSError): raise HTTPException(404,'Validated audio unavailable')
+        except ValueError as exc: raise HTTPException(409,str(exc))
 
     @app.post('/api/v1/learning/library')
     async def import_learning_song(request:Request):

@@ -2,6 +2,8 @@
 const el=id=>document.getElementById(id);
 let state=null,selected=[],referenceId=null,modelId=null,polling=false,posting=false,initialized=false,requestedModelJob=null;
 let librarySignature=null,modelSignature=null,referenceSignature=null,refreshFailed=false;
+let pipelineInitialized=false;
+const improved=()=>el('mixer-pipeline').value==='improved-transitions-1';
 const jobNodes=new Map();
 function note(text='',error=false){el('workflow-message').textContent=text;el('workflow-message').classList.toggle('error',error);}
 async function api(url,options){const response=await fetch(url,options);const data=await response.json();if(!response.ok)throw Error(data.detail||'Request failed. Try again.');return data;}
@@ -16,12 +18,14 @@ function refreshButtons(){
   const training=state?.jobs.some(job=>job.kind==='train'&&active(job)&&job.payload.draft_id===referenceId);
   el('train-model').disabled=posting||!ready?.can_train||training;
   el('train-model').textContent=training?'Training job in progress…':'Train from included reviews';
-  el('generate-test').disabled=posting||selected.length<2||!model||isStale(model);
+  el('generate-test').disabled=posting||selected.length<2||(!improved()&&(!model||isStale(model)));
+  el('generate-test').textContent=improved()?'Generate improved mix':'Generate test mix';
+  if(state)el('test-context').textContent=improved()?'Preserves vocal lines and asks for listening corrections when a handoff is uncertain. No cue model is required.':`${selected.length} songs selected. The model applies only to this test.`;
   el('generate-baseline').disabled=posting||selected.length<2;
   el('add-song').disabled=posting||!state?.library.length||selected.length>=50;
   const needsTraining=!model||isStale(model);
-  el('train-model').classList.toggle('primary',needsTraining);
-  el('generate-test').classList.toggle('primary',!needsTraining);
+  el('train-model').classList.toggle('primary',!improved()&&needsTraining);
+  el('generate-test').classList.toggle('primary',improved()||!needsTraining);el('generate-baseline').textContent=improved()?'Generate current baseline':'Generate baseline';
 }
 function renderSelection(){
   const list=el('selected-songs');list.replaceChildren();
@@ -74,7 +78,7 @@ function renderJobs(){
     }
     if(container.children[index]!==row)container.insertBefore(row,container.children[index]||null);
     row.querySelector('h3').textContent=job.kind==='pair_audition'?`Compare transitions · ${job.payload.song_names.length} songs`:job.kind==='transition_analysis'?`Analyze ${job.payload.examples} transitions`:job.kind==='train'?`Train on ${job.payload.examples} included transitions`:
-      `${job.payload.baseline?'Baseline':'Model test mix'} · ${job.payload.song_names.length} songs`;
+      `${job.kind==='join_preview'?'Transition preview':job.payload.pipeline==='improved-transitions-1'?'Improved mix':job.payload.baseline?'Baseline':'Model test mix'} · ${job.payload.song_names.length} songs`;
     const pinnedModelId=job.payload.model_id||job.result?.model_id;
     const modelIndex=state.models.findIndex(model=>model.id===pinnedModelId);
     const provenance=row.querySelector('.job-model');
@@ -95,6 +99,9 @@ function renderJobs(){
         cancel.addEventListener('click',()=>jobAction(job.id,'cancel'));actions.append(cancel);
       }else if(['failed','cancelled','interrupted'].includes(job.status)){
         const retry=text('button','Retry');retry.type='button';retry.addEventListener('click',()=>jobAction(job.id,'retry'));actions.append(retry);
+      }
+      if(job.status==='needs_review'||(job.payload.pipeline==='improved-transitions-1'&&job.status==='succeeded')){
+        const review=text('a',job.status==='needs_review'?'Review transition':'Review or adjust transitions');review.href=`/transition-review/${job.kind==='join_preview'?job.payload.parent_job_id:job.id}`;actions.append(review);
       }
       if(job.status!=='queued'){const log=text('a','View job log');log.href=`/api/v1/learning/jobs/${job.id}/log`;log.target='_blank';log.rel='noopener';actions.append(log);}
     }
@@ -129,6 +136,7 @@ function renderJobs(){
   el('worker-summary').textContent=running?`One job running${waiting?` · ${waiting} queued`:''}`:waiting?`${waiting} queued`:'Worker ready';
 }
 function render(){
+  if(!pipelineInitialized){el('mixer-pipeline').value=state.default_pipeline||'legacy-v1';pipelineInitialized=true;}
   const references=state.references.filter(reference=>reference.draft_id);
   const refSig=references.map(r=>r.draft_id).join(',');
   if(refSig!==referenceSignature){referenceSignature=refSig;el('training-reference').replaceChildren();references.forEach(r=>option(el('training-reference'),r.title,r.draft_id));if(!references.length)option(el('training-reference'),'No prepared reference yet','');}
@@ -169,7 +177,9 @@ el('test-model').addEventListener('change',()=>{modelId=el('test-model').value;r
 el('train-model').addEventListener('click',()=>submit(async()=>{const job=await post('/api/v1/learning/train',{draft_id:referenceId});requestedModelJob=job.id;}));
 el('add-song').addEventListener('click',()=>{if(selected.length<50){selected.push(el('song-picker').value);renderSelection();refreshButtons();}});
 ['generate-test','generate-baseline'].forEach(id=>el(id).addEventListener('click',()=>submit(()=>post('/api/v1/learning/test-mixes',{
-  model_id:modelId,track_ids:selected,seconds:Number(el('test-length').value),baseline:id==='generate-baseline'}))));
+  model_id:modelId,track_ids:selected,seconds:Number(el('test-length').value),baseline:id==='generate-baseline'||improved(),
+  pipeline:id==='generate-baseline'?'legacy-v1':el('mixer-pipeline').value}))));
+el('mixer-pipeline').addEventListener('change',refreshButtons);
 el('song-upload').addEventListener('change',async()=>{
   const files=Array.from(el('song-upload').files),added=[],names=[],before=new Set(state.library.map(song=>song.id));el('song-upload').disabled=true;
   try{for(let i=0;i<files.length;i++){

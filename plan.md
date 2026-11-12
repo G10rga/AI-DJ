@@ -1,7 +1,7 @@
 # Improve transition quality in the main app
 
 Date: 2026-11-12  
-Status: milestones 1 and 2 complete; milestone 3 application/review integration is next.
+Status: milestones 1–3 complete; milestone 4 listening acceptance is next.
 Project: `C:/Users/user/Documents/GitHub/AI-DJ`  
 Local data: `D:/AI-DJ-data`
 
@@ -43,9 +43,9 @@ isolated workers. Do not train a new large waveform model for this milestone.
 
 ## Current evidence and integration points
 
-- Default app jobs still use the older planner/renderer. Milestone 2 adds a
-  shared experimental Generate/Compare backend; its visible controls and durable
-  review/resume integration are milestone 3.
+- Default app jobs still use the older planner/renderer. The shared experimental
+  Generate/Compare backend and its visible durable review/resume workflow are
+  now available through milestones 2 and 3.
 - The owner said "its better" about the continuous handoff in
   `D:/AI-DJ-data/experiments/open-dj/auditions/vocal-handoff-fdc44c762ab34ca8990521d1b53addc0/`.
   Treat that as qualitative improvement, not a rating or full acceptance.
@@ -133,35 +133,39 @@ acceptance or completed correction UX.
 
 ## Milestone 3 — Listening-based correction and application integration
 
-- [ ] Add **Improved transitions — experimental** as a generation/Compare option.
+- [x] Add **Improved transitions — experimental** as a generation/Compare option.
   Preserve the current pipeline and pin the selected pipeline in each job.
-- [ ] Add durable **Needs review** workflow state. Release the heavy worker while
+- [x] Add durable **Needs review** workflow state. Release the heavy worker while
   waiting; do not publish a questionable full set.
-- [ ] Show both originals with playback, waveforms and relevant timing/activity
+- [x] Show both originals with playback, waveforms and relevant timing/activity
   evidence. Reuse the current interface/design system and timeline editor.
-- [ ] Provide controls to mark **Outgoing line finishes here** and **Start the
+- [x] Provide controls to mark **Outgoing line finishes here** and **Start the
   next song here**, then preview, save and resume.
-- [ ] Explain unresolved evidence and show requested versus applied cue changes.
+- [x] Explain unresolved evidence and show requested versus applied cue changes.
   Human phrase corrections can resolve vocal uncertainty; technical timing
   failures still require correction and revalidation.
-- [ ] Save corrections as revisions. Resume creates a linked generation job
+- [x] Save corrections as revisions. Resume creates a linked generation job
   using the pinned corrections, leaving the earlier job/history intact.
-- [ ] Preserve stale-revision checks, cancellation, worker leases, restart
+- [x] Preserve stale-revision checks, cancellation, worker leases, restart
   recovery and publication fencing. Serve previews through the main app.
 
 Public interfaces and compatibility:
 
-- [ ] Add a versioned `pipeline` option to generation and comparison requests.
-- [ ] Extend workflow persistence with `needs_review` and a durable join-preview
+- [x] Add a versioned `pipeline` option to generation and comparison requests.
+- [x] Extend workflow persistence with `needs_review` and a durable join-preview
   job; migrate without losing job/model relationships or existing results.
-- [ ] Add job transition-review read/save and resume operations.
-- [ ] Add a new plan version containing relative gain automation, protected
+- [x] Add job transition-review read/save and resume operations.
+- [x] Add a new plan version containing relative gain automation, protected
   intervals and evidence references; continue reading old plans unchanged.
-- [ ] Add an explicit **Make default** action. Persist the chosen default only
+- [x] Add an explicit **Make default** action. Persist the chosen default only
   after owner approval; never reinterpret earlier jobs with a newer pipeline.
 
 Completion: all normal generate/correct/preview/resume/play/download operations
 work from the app without chat commands or extra development servers.
+
+Completed interfaces, evidence and limits: [docs/transition-review.md](docs/transition-review.md).
+The current default remains legacy; no listening acceptance/default approval was
+inferred. The updated main application is available at http://127.0.0.1:8005.
 
 ## Milestone 4 — Listening acceptance and default promotion
 
@@ -225,11 +229,11 @@ is an effects engine; musical placement remains the planner's responsibility.
   continuity without fabricated source audio.
 - [x] Adjacent joins fit within middle tracks without overlapping automation
   conflicts, source skips or duplicated playback.
-- [ ] Review revisions, preview/resume jobs, cancellation, restart and publication
+- [x] Review revisions, preview/resume jobs, cancellation, restart and publication
   guards preserve the latest playable revision and immutable history.
-- [ ] Existing plans, models, mixes, reference reviews and preference votes remain
+- [x] Existing plans, models, mixes, reference reviews and preference votes remain
   readable after migrations.
-- [ ] Browser checks cover correction, preview, resume, playback, reload and
+- [x] Browser checks cover correction, preview, resume, playback, reload and
   revision conflicts. Test votes use isolated fixtures, not owner data.
 - [x] Rejected effects cannot silently reappear through fallback or ranking.
 
@@ -256,6 +260,7 @@ Technical success is necessary, but musical acceptance requires listening.
 | 2026-11-12 | Milestone 1, first slice | Added versioned context-aware stereo float preparation and fixed gain staging; handoff runner uses the shared service. Extracted observed local bar fits with source-wide indices and conservative phase/drift checks. Real synthetic DSP tests cover peaks above full scale, tempo/pitch, stereo, bounds, explicit inaudible padding and short/nonfinite decode rejection. | Finish versioned worker/evidence integration (including relative vocal levels and coverage). Generate/Compare integration remains in later milestones. No new listening evidence or default promotion. |
 | 2026-11-12 | Milestone 1 completed | Shared registered-pair analysis service, new immutable profile, verified MDX cache, float screening, source-relative vocal bins with actual coverage, distinct quiet/structural/phrase candidates and source-wide bar fits. Real Beat This/MERT/MDX validation on Edge of Desire / It's Not Right But It's Okay passed; repeat calls returned identical evidence and all 3 prior predictions were unchanged. The refactored At Night/Stupidisco runner passed prepared and encoded timing gates, retaining raw peaks 1.429/1.058 before gain and final -20 LUFS / -4.46 dBTP. See docs/transition-foundation.md for reports and limitations. | Begin milestone 2. No listening acceptance, new effects, default promotion or commits. |
 | 2026-11-12 | Milestone 2 completed | Added bounded vocal-preserving proposals, two recipes, global continuous set selection, shared float envelopes/renderer, isolated original/prepared/encoded timing checks and opt-in backend job dispatch for Generate/Compare. Full suite 193 tests: 187 passed, six skips; final 15 planner/timing tests passed. Real Generate and both same-cue Compare recipes passed 30 timing checks each; an unsupported second pair returned review without audio. See docs/vocal-planner.md. | Milestone 3: public experimental option, durable needs_review, correction/preview/resume/media integration and pinned plan persistence. Listening acceptance/default promotion remain later milestones. |
+| 2026-11-12 | Milestone 3 completed | Public experimental pipeline selector, durable review/preview jobs, revisioned source corrections, linked resume, version-2 saved plans, protected publication/media routes, existing Mixes/Compare playback and explicit default approval. Full suite 201 tests: 195 passed, six skips; final review and playback checks passed. Isolated real browser/audio-worker flow passed correction/preview/play/resume/reload/download/cancel/history and listening-only comparison feedback; 1440/768/390px inspection had zero failures. See docs/transition-review.md. | Milestone 4 listening acceptance and explicit owner default approval. Main app on 8005; default remains legacy-v1. No commits or owner test votes. |
 
 Implementation notes after milestone 1:
 
@@ -281,8 +286,9 @@ Implementation notes after milestone 1:
   parameter/runtime identity in its own namespace, preserving historical caches.
 - The legacy main-app renderer still uses its existing preparation. The float
   path is now consumed by milestone 2's explicit experimental Generate/Compare
-  backend. Default jobs and public controls remain unchanged pending milestone 3.
-  Required application/review and listening scenarios remain unchecked.
+  backend and milestone 3's public controls. Default jobs remain legacy until
+  explicit owner approval. Application/review checks passed; listening acceptance
+  remains milestone 4.
 - Validation: 77 targeted tests ran successfully (75 passed, two native
   Pedalboard tests skipped in the application runtime), including timeline
   immutability/corrections, existing rendering/publication, pair comparisons,

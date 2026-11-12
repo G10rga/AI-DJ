@@ -184,6 +184,24 @@ Controls and selected tracks use the control radius; the timeline and empty stat
 
 ## Components
 
+### Transition listening review
+
+The review extends the existing True-black flat listening desk. Its full-width
+canvas pairs outgoing and incoming originals in two equal columns with a 28px
+gap, stacking below 850px. Each flat source surface contains a native player,
+real coarse peak/energy waveform, estimated vocal strip, downbeats, a seek control
+and its source-mark action. Amber marks the requested source cue; missing evidence
+remains explicit. SVG labels adapt to the actual panel width so times stay legible
+on phones. Native transport/seek controls retain their working space.
+
+Correction fields sit below the originals, followed by explicit listening
+confirmation, requested/applied cues and Save/Preview/Resume actions. Preview and
+resumed-generation history uses quiet rows and native players, preserving earlier
+saved revisions. Source panels use the existing 12px radius and spacing tokens;
+forms and history stay on the black ground. The default action is separately
+gated by listening approval on a completed generation. No new palette, type family,
+decorative animation or imagery is introduced.
+
 ### Buttons
 
 Conventional, compact and explicit. Standard controls have a minimum height of (38px). Secondary buttons have transparent fills and control-gray outlines; hover uses the raised surface and press uses the pressed tone. Save is white with black text and a pale hover fill. The primary button inherits the generic pressed rule, but its later primary rule keeps the white fill; no separate primary pressed treatment is established.

@@ -67,12 +67,13 @@ def structural_support(evidence, cue):
     return any(abs(section['time']-cue) <= 2 for section in evidence['structural_changes'])
 
 
-def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, target_bpm=None, prediction=None):
+def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, target_bpm=None, prediction=None, correction=None):
     if type(maximum) is not int or not 1 <= maximum <= 12 or not math.isfinite(seconds) or seconds < 16:
         raise ValueError('Choose a finite play preference of at least 16s and at most twelve candidates')
     records = [left, right]
     evidence, sources = zip(*(source_evidence(record) for record in records))
     requested = {'seconds': seconds, 'prediction': deepcopy(prediction)}
+    if correction: requested['correction']=deepcopy(correction)
     failures = []
     if prediction is not None:
         if not isinstance(prediction, dict):
@@ -122,19 +123,33 @@ def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, targ
                     if quiet_start < 0:
                         continue
                     activity = interval_activity(rows, quiet_start, cue+overlap*ratio)
-                    if activity['status'] != 'quieter_candidate':
+                    human=False
+                    if correction:
+                        if side==0 and correction.get('outgoing_line_end') is not None:
+                            after=cue+fade*ratio-correction['outgoing_line_end']
+                            if not TAIL_GUARD <= after <= TAIL_GUARD+240/tempos[side]: continue
+                        if side==1 and correction.get('incoming_entry') is not None:
+                            if abs(cue-correction['incoming_entry'])>.25: continue
+                        human=bool(correction.get('vocal_confirmed') and correction.get('outgoing_line_end') is not None
+                                   and correction.get('incoming_entry') is not None)
+                    if activity['status'] != 'quieter_candidate' and not human:
                         continue
+                    if human:
+                        activity={**activity,'estimated_status':activity['status'],'status':'human_verified',
+                            'interval_seconds':[quiet_start,cue+overlap*ratio],
+                            'human_correction':deepcopy(correction),'phrase_completion':'explicit listening correction; timing still independently checked'}
                     features = region_features(records[side]['effective'], cue, cue+overlap*ratio)
                     if features is None or features['rms'] < .003:
                         continue
                     preferred = (prediction or {}).get(hint_key,
                         max(0., (seconds-overlap)*ratio) if side == 0 else 0.)
                     choices[side].append({'cue': cue, 'span': span, 'activity': activity, 'features': features,
+                        'safety_margin':.15 if human else .15-activity['max_vocal_ratio'],
                         'structure': structural_support(evidence[side], cue), 'distance': abs(cue-preferred)})
             # Independently filter safety on each side before pairing; the
             # returned proposal count is bounded even for very long songs.
             for items in choices:
-                items.sort(key=lambda c: (-.15+c['activity']['max_vocal_ratio'], -int(c['structure']), c['distance'], c['cue']))
+                items.sort(key=lambda c: (-c['safety_margin'], -int(c['structure']), c['distance'], c['cue']))
             for a in choices[0][:12]:
                 for b in choices[1][:12]:
                     energy_db = 20*math.log10(b['features']['rms']/a['features']['rms'])
@@ -145,7 +160,7 @@ def propose_pair(left, right, *, seconds=72., maximum=12, source_bpms=None, targ
                     harmonic = float(1-np.dot(ca, cb)/denominator) if denominator > 1e-8 else None
                     if harmonic is None:
                         continue
-                    margin = .15-max(a['activity']['max_vocal_ratio'], b['activity']['max_vocal_ratio'])
+                    margin = min(a['safety_margin'], b['safety_margin'])
                     score = [int(bars == 8), margin, int(a['structure'])+int(b['structure']),
                              -abs(energy_db)/9-harmonic, -(a['distance']+b['distance'])/max(seconds, 1)]
                     candidate = {'version': VERSION, 'recipe': recipe, 'bars': bars, 'overlap_seconds': overlap,
@@ -187,7 +202,7 @@ def compatible(previous, following, minimum_solo=4.):
         and following['source_cues'][0] >= previous['source_cues'][1]+(previous['overlap_seconds']+minimum_solo)*ratio)
 
 
-def plan_set(records, *, seconds=72., predictions=None, selected_ids=None):
+def plan_set(records, *, seconds=72., predictions=None, selected_ids=None, corrections=None):
     if len(records) < 2:
         raise ValueError('Select at least two source entries')
     if predictions is not None and len(predictions) != len(records)-1:
@@ -201,7 +216,7 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None):
     proposals = []
     for i in range(len(records)-1):
         proposal = propose_pair(records[i], records[i+1], seconds=seconds, source_bpms=tempos[i:i+2], target_bpm=target,
-            prediction=predictions[i] if predictions is not None else None)
+            prediction=predictions[i] if predictions is not None else None, correction=(corrections or {}).get(str(i)))
         if selected_ids is not None:
             proposal['candidates'] = [c for c in proposal['candidates'] if c['id'] == selected_ids[i]]
             if not proposal['candidates']:
@@ -237,6 +252,10 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None):
         evidence, raw = source_evidence(records[-1])
         earliest = begin+(candidate['overlap_seconds']+4.)*ratio
         preferred = begin+seconds*ratio
+        human=(corrections or {}).get(str(len(records)-2),{})
+        if human.get('vocal_confirmed') and human.get('ending_source_out') is not None:
+            boundaries=[t for t in raw['downbeats'] if t>=earliest and abs(t-human['ending_source_out'])<=.25]
+            return min(boundaries,key=lambda t:abs(t-human['ending_source_out'])) if boundaries else None
         boundaries = [t for t in raw['downbeats'] if t >= earliest and t < raw['duration_seconds']
             and interval_activity(evidence['vocal_activity'], max(begin, t-TAIL_GUARD), t)['status'] == 'quieter_candidate']
         return min(boundaries, key=lambda t: abs(t-preferred)) if boundaries else None
@@ -272,6 +291,7 @@ def plan_set(records, *, seconds=72., predictions=None, selected_ids=None):
     plan = {'version': VERSION, 'pipeline': PIPELINE, 'sample_rate': 44100,
         'sources': sources, 'joins': joins, 'duration_seconds': starts[-1]+sources[-1]['duration_seconds'],
         'requested': {'seconds': seconds, 'predictions': deepcopy(predictions)}, 'listening_accepted': None}
+    if corrections: plan['requested']['corrections']=deepcopy(corrections)
     plan['id'] = digest(plan)
     validate_plan(plan, records)
     return {'status': 'planned', 'plan': plan, 'review_items': [], 'proposals': proposals}
@@ -310,7 +330,8 @@ def validate_plan(plan, records):
         # a caller who edited a snapshot and recalculated its hash.
         eligible = propose_pair(records[i], records[i+1], seconds=plan['requested']['seconds'],
             source_bpms=candidate['source_bpms'], target_bpm=candidate['target_bpm'],
-            prediction=plan['requested']['predictions'][i] if plan['requested']['predictions'] is not None else None)
+            prediction=plan['requested']['predictions'][i] if plan['requested']['predictions'] is not None else None,
+            correction=plan['requested'].get('corrections',{}).get(str(i)))
         if candidate['id'] not in {c['id'] for c in eligible['candidates']}:
             raise ValueError('Candidate no longer satisfies pinned musical constraints')
         left, right = plan['sources'][i:i+2]
@@ -331,7 +352,9 @@ def validate_plan(plan, records):
             raise ValueError('Adjacent join source conflict')
     last = plan['sources'][-1]
     rows = source_evidence(records[-1])[0]['vocal_activity']
+    ending=plan['requested'].get('corrections',{}).get(str(len(records)-2),{})
+    human_ending=ending.get('vocal_confirmed') and ending.get('ending_source_out') is not None and abs(last['source_out']-ending['ending_source_out'])<=.25
     if (abs(plan['duration_seconds']-last['start_seconds']-last['duration_seconds']) > 1e-7
-            or interval_activity(rows, last['source_out']-TAIL_GUARD, last['source_out'])['status'] != 'quieter_candidate'):
+            or (not human_ending and interval_activity(rows, last['source_out']-TAIL_GUARD, last['source_out'])['status'] != 'quieter_candidate')):
         raise ValueError('Ending duration or quieter evidence changed')
     return plan

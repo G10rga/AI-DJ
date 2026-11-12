@@ -1,5 +1,32 @@
 # Handoff — AI DJ Set Maker
 
+## Main-app improvement milestone 3 completed — 2026-11-12
+
+See [plan.md](plan.md) and [docs/transition-review.md](docs/transition-review.md).
+The main app at **http://127.0.0.1:8005** now exposes **Improved transitions —
+experimental** in Learning and Compare. Uncertain jobs enter durable Needs review
+without publishing audio. The review page has both original players/waveforms,
+line-end/incoming-entry marks, explicit listening confirmation, saved revisions,
+checked preview, linked resume, playback/download and history. Human vocal edits
+do not bypass independent timing gates. The exact timeline editor is linked;
+new previews/resumes pin the latest saved timing revision of that analysis ID.
+
+SQLite schema 10 preserves old jobs/models/reviews while adding immutable review
+context, correction revisions, join-preview jobs, version-2 plan/media snapshots,
+listening-only comparison feedback and explicit default choice. Stale review or
+timing revisions, lost leases and cancellation fence media publication. Old
+playable previews stay pinned and readable. New comparison votes do not train
+legacy preference features. Make default requires explicit owner approval on a
+completed generation; the actual owner default remains **legacy-v1**.
+
+Full regression: 201 tests (195 passed, six isolated-runtime skips). Final nine
+review tests and five stale-preview/playback checks passed. The isolated real
+browser/native-worker flow passed marking/save/preview/play/conflict/reload/
+resume/download/Mixes/cancel/history plus comparison feedback; no owner test
+labels/votes were saved. Rendered desktop/tablet/mobile checks passed with zero
+failures. QA server stopped; only the normal app is needed. No commits, effects
+or listening acceptance/default promotion. Resume at milestone 4.
+
 ## Main-app improvement milestone 2 completed — 2026-11-12
 
 Read [plan.md](plan.md) and [docs/vocal-planner.md](docs/vocal-planner.md).

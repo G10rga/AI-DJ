@@ -21,7 +21,26 @@ def preference_model(store):
     return prefs.train()
 
 
-def enqueue_pair(store,track_ids,use_preferences=False):
+def enqueue_pair(store,track_ids,use_preferences=False,pipeline=None):
+    from .transition_review import pipeline as select_pipeline
+    pipeline=select_pipeline(store,pipeline)
+    if pipeline=='improved-transitions-1':
+        if use_preferences: raise ValueError('Learned ranking is not yet available for improved transitions')
+        catalog={s['id']:s for s in store.catalog(internal=True)}
+        if not isinstance(track_ids,list) or len(track_ids)!=2 or any(i not in catalog for i in track_ids):
+            raise ValueError('Choose two registered songs')
+        sources=[catalog[i] for i in track_ids]
+        if sources[0]['content_hash']==sources[1]['content_hash']: raise ValueError('Choose two different songs')
+        rejected=set()
+        with store.db.connection() as c:
+            rows=c.execute('''SELECT j.result_json FROM workflow_jobs j JOIN improved_listening_reviews r ON r.job_id=j.id
+                WHERE j.kind='pair_audition' AND j.status='succeeded' AND r.choice='neither'
+                AND r.revision=(SELECT MAX(latest.revision) FROM improved_listening_reviews latest WHERE latest.job_id=j.id)''').fetchall()
+        for row in rows:
+            result=json.loads(row[0])
+            if result.get('source_hashes')==[s['content_hash'] for s in sources]:
+                rejected.update(a['candidate_id'] for a in result.get('alternatives',[]))
+        return store.enqueue('pair_audition',{'pipeline':pipeline,'sources':sources,'baseline':True,'rejected_candidate_ids':sorted(rejected)})
     if type(use_preferences) is not bool or not isinstance(track_ids,list) or len(track_ids)!=2 or any(not isinstance(i,str) for i in track_ids):
         raise ValueError('Choose outgoing and incoming songs')
     catalog={s['id']:s for s in store.catalog(internal=True)}
@@ -44,7 +63,7 @@ def enqueue_pair(store,track_ids,use_preferences=False):
                 and prefs.review_state(row['id'])['choice']=='neither'):
             rejected.update(a['candidate_id'] for a in result['alternatives'] if a.get('candidate_id'))
     return store.enqueue('pair_audition',{'sources':sources,'timelines':records,'preference_model':model,
-                                        'rejected_candidate_ids':sorted(rejected)})
+                                        'rejected_candidate_ids':sorted(rejected),'pipeline':pipeline})
 
 
 def candidate_features(candidate,validation):
@@ -118,6 +137,10 @@ def generate_pair(store,job,owner,progress):
 
 def comparison_audio(store,identity,slot):
     job=store.job(identity)
+    if job['payload'].get('pipeline')=='improved-transitions-1':
+        from .transition_review import media
+        if job['kind']!='pair_audition' or slot not in ('a','b'): raise KeyError(identity)
+        return media(store,identity,slot)
     if job['kind']!='pair_audition' or job['status']!='succeeded' or slot not in ('a','b'):raise KeyError(identity)
     alternative=job['result']['alternatives'][0 if slot=='a' else 1]
     name=alternative['storage_name'];root=(store.storage.root/'renders').resolve();path=(root/name).resolve()
@@ -128,5 +151,8 @@ def comparison_audio(store,identity,slot):
 
 def save_feedback(store,identity,choice,revision,notes):
     comparison_audio(store,identity,'a');comparison_audio(store,identity,'b')
+    if store.job(identity)['payload'].get('pipeline')=='improved-transitions-1':
+        from .transition_review import listening_feedback
+        return listening_feedback(store,identity,choice,revision,notes)
     result=store.job(identity)['result'];a,b=result['alternatives']
     return preferences(store).review(identity,a['preference_id'],b['preference_id'],choice,revision,notes)

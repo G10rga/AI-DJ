@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-07T19:20:50.308Z",
+  "generatedAt": "2026-11-12T13:30:55.508Z",
   "title": "Design System: AI-DJ",
   "extensions": {
     "colorMeta": {
@@ -285,6 +285,10 @@
       {
         "name": "wide-header",
         "value": "1800px"
+      },
+      {
+        "name": "review-originals-stack",
+        "value": "850px"
       }
     ]
   },
@@ -364,6 +368,13 @@
       "description": "One of the two latest associated matched previews, with native controls and handoff/download actions; static sample has no audio or seek handler.",
       "html": "<article class=\"ds-preview\"><h3>8-bar EQ handoff</h3><p>2:08 · Handoff 1:04 · I Move (Lyrics) → F Say What</p><audio controls preload=\"metadata\" aria-label=\"8-bar EQ handoff preview playback\"></audio><div class=\"ds-preview-actions\"><button title=\"Starts four seconds before the handoff\">Play handoff 1:04</button><a href=\"#\" download>Download preview</a></div></article>",
       "css": ".ds-preview{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--text,#fff);padding:0 0 22px;margin-bottom:22px;border-bottom:1px solid #252525}.ds-preview h3{font-size:14px;font-weight:600;line-height:1.5;margin:0}.ds-preview p{font-size:12px;line-height:1.6;color:var(--muted,#b4b4b4);margin:6px 0 0;overflow-wrap:anywhere}.ds-preview audio{display:block;width:100%;height:42px;margin-top:12px;color-scheme:dark}.ds-preview-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}.ds-preview-actions button{font-family:Inter,system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;cursor:pointer;background:transparent;color:var(--text,#fff);font-size:12px}.ds-preview-actions a{font-size:12px;text-underline-offset:4px;color:var(--muted,#b4b4b4)}.ds-preview-actions button:hover{background:var(--raised,#242424)}.ds-preview-actions button:active{background:#333}.ds-preview-actions button:focus-visible,.ds-preview-actions a:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}@media(max-width:650px){.ds-preview-actions{justify-content:flex-start;gap:18px}}"
+    },
+    {
+      "name": "Transition listening review",
+      "kind": "custom",
+      "description": "Paired original-source players and saved listening corrections. Real waveform, energy, vocal and downbeat geometry is supplied by source evidence at runtime. Requested cues, applied cues and revision history remain explicit; default activation requires separate listening approval.",
+      "html": "<section class=\"ds-review\"><h1>Review transition</h1><p>Listen to the originals and confirm the source cues.</p><div class=\"ds-originals\"><section class=\"ds-original\"><h2>Outgoing original</h2><audio controls preload=\"metadata\" aria-label=\"Outgoing original\"></audio><p>Musical evidence is loaded from the selected source.</p></section><section class=\"ds-original\"><h2>Incoming original</h2><audio controls preload=\"metadata\" aria-label=\"Incoming original\"></audio><p>Musical evidence is loaded from the selected source.</p></section></div><h2>Source cues</h2><div class=\"ds-cues\"><label>Outgoing line end (seconds)<input type=\"number\" min=\"0\" step=\"0.01\"></label><label>Incoming entry (seconds)<input type=\"number\" min=\"0\" step=\"0.01\"></label><label>Optional ending (seconds)<input type=\"number\" min=\"0\" step=\"0.01\"></label></div><label class=\"ds-confirm\"><input type=\"checkbox\">I listened and confirmed these vocal boundaries.</label><div class=\"ds-actions\"><button class=\"ds-save\">Save corrections</button><button disabled>Preview join</button><button disabled>Resume generation</button></div></section>",
+      "css": ".ds-review{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:14px;color:var(--text,#fff);background:var(--ground,#000);max-width:1440px;margin:auto;padding:28px 32px 64px}.ds-review *{box-sizing:border-box}.ds-review h1{font-size:22px;font-weight:600;line-height:1.3;margin:0}.ds-review h2{font-size:16px;font-weight:600;margin:28px 0 14px}.ds-review p{font-size:14px;line-height:1.6;color:var(--muted,#b4b4b4);max-width:70ch}.ds-originals{display:grid;grid-template-columns:1fr 1fr;gap:28px}.ds-original{min-width:0;background:var(--surface,#111);padding:20px;border-radius:12px}.ds-original h2{margin:0 0 14px;line-height:1.5;overflow-wrap:anywhere}.ds-original audio{width:100%;height:44px;color-scheme:dark}.ds-cues{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.ds-cues label{display:flex;flex-direction:column;gap:8px;font-size:13px}.ds-cues input,.ds-actions button{font:inherit;min-height:38px;border:1px solid var(--control,#444);border-radius:6px;padding:8px 11px;background:transparent;color:var(--text,#fff)}.ds-cues input{width:100%;min-width:0;caret-color:var(--accent,#c6f24e)}.ds-confirm{display:flex;align-items:flex-start;gap:10px;line-height:1.6;margin:20px 0}.ds-confirm input{flex:none;margin-top:5px}.ds-actions{display:flex;gap:12px;flex-wrap:wrap}.ds-actions button{cursor:pointer}.ds-actions button:hover{background:var(--raised,#242424)}.ds-actions .ds-save{background:var(--text,#fff);color:var(--ground,#000);border-color:var(--text,#fff)}.ds-actions .ds-save:hover{background:#ddd}.ds-actions button:disabled{opacity:.5;cursor:default}.ds-review input:focus-visible,.ds-actions button:focus-visible{outline:2px solid var(--accent,#c6f24e);outline-offset:3px}@media(max-width:850px){.ds-originals{grid-template-columns:1fr;gap:20px}.ds-cues{grid-template-columns:1fr 1fr}.ds-cues label:last-child{grid-column:1/-1}}@media(max-width:650px){.ds-review{padding:24px 16px 44px}.ds-review h1{font-size:20px}.ds-original{padding:16px 12px}.ds-cues{grid-template-columns:1fr}.ds-cues input{font-size:16px}.ds-actions button{min-height:44px}}"
     }
   ],
   "narrative": {

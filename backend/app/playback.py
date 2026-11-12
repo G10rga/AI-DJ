@@ -77,9 +77,28 @@ class PlaybackLibrary:
                            'latest_render_failed': bool(row['last_error']),
                            'audio_url': f'/api/v1/mixes/{row["id"]}/audio?revision={row["playable_revision"]}',
                            'download_url': f'/api/v1/mixes/{row["id"]}/audio?revision={row["playable_revision"]}&download=true'})
+        with self.database.connection() as c:
+            improved=c.execute('''SELECT p.*,j.payload_json FROM improved_plans p JOIN workflow_jobs j ON j.id=p.job_id
+                WHERE j.kind='test_mix' AND j.status='succeeded' AND p.slot='mix' ORDER BY j.rowid DESC LIMIT 50''').fetchall()
+        for row in reversed(improved):
+            report=json.loads(row['report_json']); plan=report['plan']; payload=json.loads(row['payload_json'])
+            tracks=[{'name':source['name'],'start_seconds':planned['start_seconds'],'duration_seconds':planned['duration_seconds']}
+                    for source,planned in zip(payload['sources'],plan['sources'])]
+            result.insert(0,{'id':'workflow-'+row['job_id'],'revision':1,'pair_keys':[],
+                'title':' → '.join(Path(t['name']).stem for t in tracks),'duration_seconds':plan['duration_seconds'],
+                'tracks':tracks,'transitions':[{'start_seconds':j['entry_seconds'],'end_seconds':j['end_seconds'],
+                    'handoff_seconds':j['fade_start_seconds'],'bars':j['candidate']['bars'],'style':j['candidate']['recipe']} for j in plan['joins']],
+                'available':self.storage.path('renders',row['storage_name']).is_file(),'previous_version_kept':False,'latest_render_failed':False,
+                'audio_url':f'/api/v1/learning/jobs/{row["job_id"]}/audio/mix',
+                'download_url':f'/api/v1/learning/jobs/{row["job_id"]}/audio/mix?download=true'})
         return result
 
     def mix_audio(self, mix_id, revision=None):
+        if mix_id.startswith('workflow-'):
+            from .workflow import Workflow
+            from .transition_review import media
+            from .config import Settings
+            return media(Workflow(Settings(data_root=self.storage.root)),mix_id.removeprefix('workflow-'))
         with self.database.connection() as c:
             row = c.execute('''SELECT r.storage_name FROM mixes m JOIN renders r
                 ON r.mix_id=m.id AND r.revision=COALESCE(?,m.playable_revision) WHERE m.id=?''', (revision,mix_id)).fetchone()

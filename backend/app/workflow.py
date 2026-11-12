@@ -128,7 +128,11 @@ class Workflow:
             'draft_id':draft_id,'reference_id':batch['reference_id'],'recording_hash':batch['recording_hash'],
             'algorithm_version':VERSION,'examples':examples}})
 
-    def enqueue_test(self, model_id, track_ids, seconds=72, baseline=False):
+    def enqueue_test(self, model_id, track_ids, seconds=72, baseline=False, pipeline=None):
+        from .transition_review import pipeline as select_pipeline
+        pipeline=select_pipeline(self,pipeline)
+        if pipeline=='improved-transitions-1' and not baseline:
+            raise ValueError('Use Generate improved mix; existing cue models do not support this pipeline yet')
         if type(baseline) is not bool or type(seconds) not in (float,int) or not 30<=seconds<=240:
             raise ValueError('Choose a test length from 30 to 240 seconds per song')
         if not isinstance(track_ids,list) or not 2<=len(track_ids)<=50 or any(not isinstance(t,str) for t in track_ids):
@@ -141,7 +145,7 @@ class Workflow:
             if self.readiness(model_record['draft_id'])['review_fingerprint']!=manifest['review_fingerprint']:
                 raise ValueError('Reviews changed since this model was trained. Train a new version before generating a test mix.')
         return self.enqueue('test_mix',{'model_id':None if baseline else model_id,'baseline':baseline,
-            'sources':[catalog[t] for t in track_ids],'seconds':float(seconds)})
+            'sources':[catalog[t] for t in track_ids],'seconds':float(seconds),'pipeline':pipeline})
 
     def enqueue(self,kind,payload):
         key=hashlib.sha256((kind+canonical(payload)).encode()).hexdigest()
@@ -163,6 +167,8 @@ class Workflow:
         result['result']=json.loads(raw_result) if raw_result else None
         result['payload']=payload if internal else {'draft_id':payload.get('draft_id'),'model_id':payload.get('model_id'),
             'baseline':payload.get('baseline',False),'song_names':[s['name'] for s in payload.get('sources',[])],
+            'pipeline':payload.get('pipeline','legacy-v1'),'parent_job_id':payload.get('parent_job_id'),
+            'review_revision':payload.get('review_revision'),'join_index':payload.get('join_index'),
             'examples':len(payload.get('snapshot',{}).get('examples',[]))}
         if not internal:
             result.pop('owner');result.pop('request_key');result.pop('heartbeat')
@@ -197,7 +203,7 @@ class Workflow:
             c.execute('BEGIN IMMEDIATE')
             row=c.execute('SELECT status FROM workflow_jobs WHERE id=?',(identity,)).fetchone()
             if row is None:raise KeyError(identity)
-            if row[0]=='queued':
+            if row[0] in ('queued','needs_review'):
                 c.execute("UPDATE workflow_jobs SET status='cancelled',stage='Cancelled',finished_at=CURRENT_TIMESTAMP WHERE id=?",(identity,))
             elif row[0]=='running':c.execute('UPDATE workflow_jobs SET cancel_requested=1 WHERE id=?',(identity,))
         return self.job(identity)
@@ -205,6 +211,10 @@ class Workflow:
     def retry(self,identity):
         job=self.job(identity,internal=True)
         if job['status'] not in ('failed','interrupted','cancelled'):raise ValueError('Only failed, interrupted or cancelled jobs can be retried')
+        if job['payload'].get('parent_job_id'):
+            with self.db.connection() as c:
+                revision=c.execute('SELECT MAX(revision) FROM transition_reviews WHERE job_id=?',(job['payload']['parent_job_id'],)).fetchone()[0]
+            if revision!=job['payload']['review_revision']:raise ValueError('Review changed; reload the original review and preview its current revision')
         return self.enqueue(job['kind'],job['payload'])
 
     def claim(self,owner,now=None):
@@ -248,8 +258,30 @@ class Workflow:
             if row is None or row['status']!='running' or row['owner']!=owner:return False
             lease=c.execute("SELECT owner,expires FROM workflow_leases WHERE name='heavy-worker'").fetchone()
             if not lease or lease['owner']!=owner or lease['expires']<time.time():return False
-            if status=='succeeded' and row['cancel_requested']:
+            if status=='succeeded' and result and result.get('status')=='needs_review': status='needs_review'
+            if status in ('succeeded','needs_review') and row['cancel_requested']:
                 status='cancelled';result=None;error='Cancelled by owner'
+            payload=json.loads(row['payload_json'])
+            if status in ('succeeded','needs_review') and payload.get('parent_job_id'):
+                parent=c.execute('SELECT status FROM workflow_jobs WHERE id=?',(payload['parent_job_id'],)).fetchone()
+                if parent is None or parent['status']=='cancelled':
+                    status='cancelled';result=None;error='The parent review was cancelled'
+                current=c.execute('SELECT MAX(revision) FROM transition_reviews WHERE job_id=?',(payload['parent_job_id'],)).fetchone()[0]
+                if current!=payload['review_revision']:
+                    status='interrupted';result=None;error='Review changed during this job. Reload and preview or resume the current revision.'
+                if status in ('succeeded','needs_review'):
+                    for record in payload.get('foundation_records',[]):
+                        actual=c.execute('SELECT COALESCE(MAX(revision),0) FROM timeline_corrections WHERE timeline_id=?',(record['timeline_id'],)).fetchone()[0]
+                        if actual!=record['revision']:
+                            status='interrupted';result=None;error='Timing corrections changed during this job. Reload and preview again.';break
+            if status=='succeeded' and payload.get('pipeline')=='improved-transitions-1':
+                from .transition_review import register_artifacts
+                if not result or result.get('status')!='validated': raise ValueError('Improved audio must pass validation before publication')
+                register_artifacts(self,c,row,result)
+            if result and payload.get('pipeline')=='improved-transitions-1':
+                result['source_hashes']=[s['content_hash'] for s in payload['sources']]
+                if result.get('plan'):
+                    result['applied_transitions']=[{'bars':j['candidate']['bars'],'seconds':j['candidate']['overlap_seconds']} for j in result['plan']['joins']]
             if status=='succeeded' and row['kind']=='train':
                 model=result['model'];path=(self.storage.root/'models'/model['storage_name']).resolve()
                 if not path.is_relative_to((self.storage.root/'models').resolve()) or sha256(path/'manifest.json')!=model['manifest_hash']:
@@ -257,8 +289,10 @@ class Workflow:
                 c.execute('INSERT INTO decision_models VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)',
                           (model['id'],identity,json.loads(row['payload_json'])['draft_id'],model['storage_name'],canonical(model)))
             c.execute('UPDATE workflow_jobs SET status=?,stage=?,progress=?,result_json=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?',
-                      (status,'Completed' if status=='succeeded' else status.capitalize(),1 if status=='succeeded' else row['progress'],
+                      (status,'Completed' if status=='succeeded' else 'Needs review' if status=='needs_review' else status.capitalize(),1 if status=='succeeded' else row['progress'],
                        canonical(result) if result else None,str(error)[:2000] if error else None,identity))
+            if status=='needs_review':
+                c.execute("DELETE FROM workflow_leases WHERE name='heavy-worker' AND owner=?",(owner,))
         if status!='succeeded':self.fail_render_attempts(identity,error or status)
         return True
 

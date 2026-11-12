@@ -97,8 +97,8 @@ CREATE TABLE IF NOT EXISTS reference_transition_reviews (
  PRIMARY KEY(draft_id,position,revision)
 );
 CREATE TABLE IF NOT EXISTS workflow_jobs (
- id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('train','test_mix','transition_analysis','pair_audition')),
- request_key TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','interrupted','cancelled')),
+ id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('train','test_mix','transition_analysis','pair_audition','join_preview')),
+ request_key TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','interrupted','cancelled','needs_review')),
  payload_json TEXT NOT NULL, result_json TEXT, error TEXT, stage TEXT NOT NULL DEFAULT 'Queued',
  progress REAL NOT NULL DEFAULT 0, cancel_requested INTEGER NOT NULL DEFAULT 0,
  owner TEXT, heartbeat REAL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -115,6 +115,25 @@ CREATE TABLE IF NOT EXISTS decision_models (
  storage_name TEXT NOT NULL UNIQUE, manifest_json TEXT NOT NULL,
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS transition_contexts (
+ job_id TEXT PRIMARY KEY REFERENCES workflow_jobs(id), snapshot_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS transition_reviews (
+ job_id TEXT NOT NULL REFERENCES workflow_jobs(id), revision INTEGER NOT NULL,
+ snapshot_json TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(job_id,revision)
+);
+CREATE TABLE IF NOT EXISTS improved_plans (
+ job_id TEXT NOT NULL REFERENCES workflow_jobs(id), slot TEXT NOT NULL,
+ plan_json TEXT NOT NULL, report_json TEXT NOT NULL, storage_name TEXT NOT NULL,
+ audio_hash TEXT NOT NULL, PRIMARY KEY(job_id,slot)
+);
+CREATE TABLE IF NOT EXISTS improved_listening_reviews (
+ job_id TEXT NOT NULL REFERENCES workflow_jobs(id), revision INTEGER NOT NULL,
+ choice TEXT NOT NULL, notes TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(job_id,revision)
+);
+CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL);
 """
 
 
@@ -138,9 +157,9 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}:
+            if version not in {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}:
                 raise RuntimeError("Unsupported database version")
-            if 0 < version < 9 and connection.execute("SELECT 1 FROM sqlite_master WHERE name='workflow_jobs'").fetchone():
+            if 0 < version < 10 and connection.execute("SELECT 1 FROM sqlite_master WHERE name='workflow_jobs'").fetchone():
                 # Rebuild only the CHECK constraint; retain IDs referenced by models.
                 connection.execute('PRAGMA foreign_keys = OFF')
                 definition = SCHEMA.split('CREATE TABLE IF NOT EXISTS workflow_jobs (', 1)[1].split(');', 1)[0]
@@ -152,7 +171,7 @@ class Database:
                     connection.execute('ALTER TABLE workflow_jobs_new RENAME TO workflow_jobs')
                     if connection.execute('PRAGMA foreign_key_check').fetchone():
                         raise RuntimeError('Workflow migration failed referential integrity check')
-                    connection.execute('PRAGMA user_version = 9')
+                    connection.execute('PRAGMA user_version = 10')
                     connection.commit()
                 except Exception:
                     connection.rollback()
@@ -160,7 +179,7 @@ class Database:
                 finally:
                     connection.execute('PRAGMA foreign_keys = ON')
             connection.executescript(SCHEMA)
-            connection.execute("PRAGMA user_version = 9")
+            connection.execute("PRAGMA user_version = 10")
 
     def register_plan(self, entries, plan):
         """Register members and their initial plan in one transaction."""

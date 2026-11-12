@@ -30,9 +30,9 @@ def records_for_sources(sources, settings, *, pinned=None, live=lambda: True):
 
 
 def generate(records, paths, settings, storage, *, seconds=72., predictions=None,
-             selected_ids=None, live=lambda: True, renderer=render_plan):
+             selected_ids=None, live=lambda: True, renderer=render_plan, corrections=None):
     check_live(live)
-    result = plan_set(records, seconds=seconds, predictions=predictions, selected_ids=selected_ids)
+    result = plan_set(records, seconds=seconds, predictions=predictions, selected_ids=selected_ids, corrections=corrections)
     if result['status'] != 'planned':
         return {**result, 'pipeline': PIPELINE}
     rendered = renderer(result['plan'], records, paths, settings, storage, live=live)
@@ -40,12 +40,12 @@ def generate(records, paths, settings, storage, *, seconds=72., predictions=None
 
 
 def compare(records, paths, settings, storage, *, seconds=72., predictions=None,
-            rejected_ids=(), live=lambda: True, renderer=render_plan):
+            rejected_ids=(), live=lambda: True, renderer=render_plan, corrections=None):
     if len(records) != 2:
         raise ValueError('Compare requires exactly two ordered sources')
     storage.initialize()
     check_live(live)
-    result = plan_set(records, seconds=seconds, predictions=predictions)
+    result = plan_set(records, seconds=seconds, predictions=predictions,corrections=corrections)
     if result['status'] != 'planned':
         return {**result, 'pipeline': PIPELINE}
     candidates = [candidate for candidate in result['proposals'][0]['candidates'] if candidate['id'] not in set(rejected_ids)]
@@ -69,7 +69,7 @@ def compare(records, paths, settings, storage, *, seconds=72., predictions=None,
         reports = []
         for candidate in chosen:
             report = generate(records, paths, settings, staging, seconds=seconds, predictions=predictions,
-                              selected_ids=[candidate['id']], live=live, renderer=renderer)
+                              selected_ids=[candidate['id']], live=live, renderer=renderer,corrections=corrections)
             if report['status'] != 'validated':
                 return {**report, 'alternatives': []}
             reports.append(report)
@@ -103,6 +103,10 @@ def execute_job(store, job, owner, progress):
     progress('Preparing pinned vocal-preserving evidence', .05)
     sources = payload['sources']
     records = records_for_sources(sources, store.settings, pinned=payload.get('foundation_records'), live=live)
+    from .transition_review import capture
+    capture(store,job,owner,records)
+    corrections={key:{**value,'review_job_id':payload.get('parent_job_id',job['id']),
+        'review_revision':payload.get('review_revision',0)} for key,value in payload.get('corrections',{}).items()}
     paths = [Path(source['path']) for source in sources]
     predictions = payload.get('improved_predictions')
     if not payload.get('baseline', True) and predictions is None:
@@ -111,6 +115,6 @@ def execute_job(store, job, owner, progress):
     progress('Planning continuous vocal-preserving transitions and validating actual audio', .4)
     if job['kind'] == 'pair_audition':
         return compare(records, paths, store.settings, store.storage, seconds=payload.get('seconds', 72),
-            predictions=predictions, rejected_ids=payload.get('rejected_candidate_ids', ()), live=live)
+            predictions=predictions, rejected_ids=payload.get('rejected_candidate_ids', ()), live=live,corrections=corrections)
     return generate(records, paths, store.settings, store.storage, seconds=payload.get('seconds', 72),
-                    predictions=predictions, selected_ids=payload.get('selected_candidate_ids'), live=live)
+                    predictions=predictions, selected_ids=payload.get('selected_candidate_ids'), live=live,corrections=corrections)

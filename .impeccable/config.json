@@ -47,6 +47,15 @@
         ],
         "createdAt": "2026-11-11T18:45:33.018Z",
         "reason": "Agent: browser computed sizes at 390 and 1440 widths are title 20/22px, section 16px and body 13px. Static detector incorrectly resolves root-relative /assets CSS under web_assets/assets and reports all roles as 16px. Preserve DESIGN.md hierarchy."
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "backend/app/web_assets/transition-review.html"
+        ],
+        "createdAt": "2026-11-12T13:28:53.709Z",
+        "reason": "Codex verified computed browser sizes against DESIGN.md: desktop title/heading/body 22/16/14px, mobile 20/16/14px. The title-to-heading step is 1.375 desktop and 1.25 mobile; preserve the established compact listening-workspace hierarchy."
       }
     ]
   }
