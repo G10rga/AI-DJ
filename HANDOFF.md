@@ -1,5 +1,30 @@
 # Handoff — AI DJ Set Maker
 
+## Main-app improvement milestone 2 completed — 2026-11-12
+
+Read [plan.md](plan.md) and [docs/vocal-planner.md](docs/vocal-planner.md).
+The shared experimental backend now implements plain/protected vocal recipes,
+at most twelve evidence-constrained candidates, continuous ordered set geometry,
+sample-based master envelopes, stereo float rendering and independent original/
+prepared/encoded whole/local timing gates. Both Generate/Compare job entry points
+dispatch explicitly pinned `improved-transitions-1` payloads to that service.
+Legacy/default jobs remain unchanged. Unsafe/missing evidence returns structured
+review items without audio; selected failures never change cues or recipe.
+
+Real At Night/Stupidisco Generate and same-cue plain/protected Compare artifacts
+passed all 30 timing checks each, at -20.00/-19.99 LUFS. These use independently
+selected later source regions, not the earlier owner-reviewed experiment cues;
+new listening acceptance remains null. Edge of Desire / It's Not Right But It's
+Okay correctly requested review with no safe candidate and no audio. Reviewed
+artifacts, old evidence/defaults/models and rejected effects remain preserved.
+Full suite: 193 tests (187 passed, six isolated-runtime skips), plus final 15
+planner/timing checks after the local-window edge fix. No votes or commits.
+
+Resume at milestone 3: visible experimental option, durable review state,
+correction/preview/resume/media integration, pinned plan persistence and job
+publication guards. Backend `needs_review` results are not yet durable workflow
+review states. Preference feature extensions and effects remain milestone 5.
+
 ## Main-app improvement milestone 1 completed — 2026-11-12
 
 Read [plan.md](plan.md) for the current cross-session implementation checklist.

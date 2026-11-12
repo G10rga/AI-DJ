@@ -1,7 +1,7 @@
 # Improve transition quality in the main app
 
 Date: 2026-11-12  
-Status: milestone 1 implemented and model-backed validation passed; milestone 2 is next.
+Status: milestones 1 and 2 complete; milestone 3 application/review integration is next.
 Project: `C:/Users/user/Documents/GitHub/AI-DJ`  
 Local data: `D:/AI-DJ-data`
 
@@ -43,8 +43,9 @@ isolated workers. Do not train a new large waveform model for this milestone.
 
 ## Current evidence and integration points
 
-- The main app still uses the older planner/renderer. Experimental scripts are
-  not production integration.
+- Default app jobs still use the older planner/renderer. Milestone 2 adds a
+  shared experimental Generate/Compare backend; its visible controls and durable
+  review/resume integration are milestone 3.
 - The owner said "its better" about the continuous handoff in
   `D:/AI-DJ-data/experiments/open-dj/auditions/vocal-handoff-fdc44c762ab34ca8990521d1b53addc0/`.
   Treat that as qualitative improvement, not a rating or full acceptance.
@@ -99,29 +100,36 @@ survive preparation without clipping introduced by an intermediate format.
 
 ## Milestone 2 — General vocal-preserving transition planner
 
-- [ ] Implement two initial recipes: the corrected plain crossfade and the
+- [x] Implement two initial recipes: the corrected plain crossfade and the
   protected-vocal gradual handoff.
-- [ ] Search supported outgoing passages and incoming intros across each song.
+- [x] Search supported outgoing passages and incoming intros across each song.
   Default to eight-bar overlaps; consider sixteen bars only when both songs
   provide sufficient compatible context.
-- [ ] Preserve continuous source playback. A middle track must have one
+- [x] Preserve continuous source playback. A middle track must have one
   consistent source-time progression through its incoming and outgoing joins.
-- [ ] Hold outgoing audio at its fixed preparation gain through the protected
+- [x] Hold outgoing audio at its fixed preparation gain through the protected
   line and tail. Introduce the incoming intro gradually, reaching at most 25%
   gain before the outgoing fade begins.
-- [ ] Require quieter evidence throughout the outgoing fade and its two-second
+- [x] Require quieter evidence throughout the outgoing fade and its two-second
   preceding guard. Check incoming vocal activity over its entire audible overlap.
   A quiet destination bar does not establish that the current phrase has ended.
-- [ ] Propose at most twelve candidates. Rank by vocal safety margin, structural
+- [x] Propose at most twelve candidates. Rank by vocal safety margin, structural
   evidence, energy/harmonic compatibility and proximity to requested play length.
-- [ ] Validate actual stretched sources, local overlap windows and encoded audio.
+- [x] Validate actual stretched sources, local overlap windows and encoded audio.
   Missing or inconsistent beat/bar/vocal evidence sends the join for review.
-- [ ] Make Generate and Compare use the same planner, envelopes and validation.
-- [ ] Keep learned cue models optional. Preserve requested/applied settings;
+- [x] Make Generate and Compare use the same planner, envelopes and validation.
+- [x] Keep learned cue models optional. Preserve requested/applied settings;
   model proposals cannot bypass constraints or silently change their recipe.
 
 Completion: generation chooses cues from each pair's evidence, preserves source
 continuity and produces either a validated plan or actionable review items.
+
+Implementation and evidence: [docs/vocal-planner.md](docs/vocal-planner.md).
+Both existing job entry points route explicitly pinned experimental payloads to
+the shared backend. Public pipeline controls, media/review/resume persistence
+and the durable `needs_review` workflow state remain milestone 3. Default jobs
+remain unchanged; structured backend review results do not claim listening
+acceptance or completed correction UX.
 
 ## Milestone 3 — Listening-based correction and application integration
 
@@ -207,15 +215,15 @@ is an effects engine; musical placement remains the planner's responsibility.
 
 - [x] Native/stretched peaks above 0dBFS remain intact in float preparation and
   are gain-staged safely before encoding.
-- [ ] Quantized beat timestamps, half-beat errors, bar-phase errors, half-tempo
+- [x] Quantized beat timestamps, half-beat errors, bar-phase errors, half-tempo
   mistakes, local drift and irregular/missing markers are handled explicitly.
-- [ ] Ongoing vocals remain protected even when a future destination bar is quiet.
-- [ ] Missing, gapped or uncovered activity evidence cannot count as silence.
-- [ ] Incoming gains rise over bars; protected outgoing intervals retain their
+- [x] Ongoing vocals remain protected even when a future destination bar is quiet.
+- [x] Missing, gapped or uncovered activity evidence cannot count as silence.
+- [x] Incoming gains rise over bars; protected outgoing intervals retain their
   planned gain. Verify sample-level envelope continuity.
-- [ ] Source bounds, early-intro padding and tempo mappings preserve audible
+- [x] Source bounds, early-intro padding and tempo mappings preserve audible
   continuity without fabricated source audio.
-- [ ] Adjacent joins fit within middle tracks without overlapping automation
+- [x] Adjacent joins fit within middle tracks without overlapping automation
   conflicts, source skips or duplicated playback.
 - [ ] Review revisions, preview/resume jobs, cancellation, restart and publication
   guards preserve the latest playable revision and immutable history.
@@ -223,7 +231,7 @@ is an effects engine; musical placement remains the planner's responsibility.
   readable after migrations.
 - [ ] Browser checks cover correction, preview, resume, playback, reload and
   revision conflicts. Test votes use isolated fixtures, not owner data.
-- [ ] Rejected effects cannot silently reappear through fallback or ranking.
+- [x] Rejected effects cannot silently reappear through fallback or ranking.
 
 Useful existing regression command (run from the repository root):
 
@@ -247,6 +255,7 @@ Technical success is necessary, but musical acceptance requires listening.
 | 2026-11-12 | Plan saved | Owner choices captured; no implementation started. | Begin milestone 1 when execution is requested. |
 | 2026-11-12 | Milestone 1, first slice | Added versioned context-aware stereo float preparation and fixed gain staging; handoff runner uses the shared service. Extracted observed local bar fits with source-wide indices and conservative phase/drift checks. Real synthetic DSP tests cover peaks above full scale, tempo/pitch, stereo, bounds, explicit inaudible padding and short/nonfinite decode rejection. | Finish versioned worker/evidence integration (including relative vocal levels and coverage). Generate/Compare integration remains in later milestones. No new listening evidence or default promotion. |
 | 2026-11-12 | Milestone 1 completed | Shared registered-pair analysis service, new immutable profile, verified MDX cache, float screening, source-relative vocal bins with actual coverage, distinct quiet/structural/phrase candidates and source-wide bar fits. Real Beat This/MERT/MDX validation on Edge of Desire / It's Not Right But It's Okay passed; repeat calls returned identical evidence and all 3 prior predictions were unchanged. The refactored At Night/Stupidisco runner passed prepared and encoded timing gates, retaining raw peaks 1.429/1.058 before gain and final -20 LUFS / -4.46 dBTP. See docs/transition-foundation.md for reports and limitations. | Begin milestone 2. No listening acceptance, new effects, default promotion or commits. |
+| 2026-11-12 | Milestone 2 completed | Added bounded vocal-preserving proposals, two recipes, global continuous set selection, shared float envelopes/renderer, isolated original/prepared/encoded timing checks and opt-in backend job dispatch for Generate/Compare. Full suite 193 tests: 187 passed, six skips; final 15 planner/timing tests passed. Real Generate and both same-cue Compare recipes passed 30 timing checks each; an unsupported second pair returned review without audio. See docs/vocal-planner.md. | Milestone 3: public experimental option, durable needs_review, correction/preview/resume/media integration and pinned plan persistence. Listening acceptance/default promotion remain later milestones. |
 
 Implementation notes after milestone 1:
 
@@ -271,8 +280,9 @@ Implementation notes after milestone 1:
   evidence stays unknown. `audio/separation_cache.py` verifies hashes and model/
   parameter/runtime identity in its own namespace, preserving historical caches.
 - The legacy main-app renderer still uses its existing preparation. The float
-  path is ready for the experimental pipeline; it has not been activated in
-  Generate/Compare. Required end-to-end/listening scenarios remain unchecked.
+  path is now consumed by milestone 2's explicit experimental Generate/Compare
+  backend. Default jobs and public controls remain unchanged pending milestone 3.
+  Required application/review and listening scenarios remain unchecked.
 - Validation: 77 targeted tests ran successfully (75 passed, two native
   Pedalboard tests skipped in the application runtime), including timeline
   immutability/corrections, existing rendering/publication, pair comparisons,

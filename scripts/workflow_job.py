@@ -19,6 +19,9 @@ def cpu(settings,kind,request,destination,model=None):
 def execute(store,job,owner,work):
     settings=store.settings;identity=job['id'];payload=job['payload']
     progress=lambda text,amount:store.progress(identity,owner,text,amount)
+    if payload.get('pipeline') == 'improved-transitions-1':
+        from backend.app.improved_transitions import execute_job
+        return execute_job(store,job,owner,progress)
     if job['kind']=='pair_audition':
         from backend.app.pair_comparisons import generate_pair
         return generate_pair(store,job,owner,progress)

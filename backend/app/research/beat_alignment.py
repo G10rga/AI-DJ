@@ -1,48 +1,5 @@
-"""Compare independently detected beat markers without hiding unmatched beats."""
-import numpy as np
-
-VERSION='independent-beat-bar-gate-1'
-
-
-def marker_alignment(first,second,start,end,tolerance=.025):
-    if not np.isfinite([start,end,tolerance]).all() or end<=start or tolerance<=0:
-        raise ValueError('Invalid marker comparison window')
-    a=np.asarray(first,dtype=float);b=np.asarray(second,dtype=float)
-    if a.ndim!=1 or b.ndim!=1 or not np.isfinite(a).all() or not np.isfinite(b).all():
-        raise ValueError('Invalid beat marker arrays')
-    if np.any(np.diff(a)<=0) or np.any(np.diff(b)<=0):
-        raise ValueError('Beat markers must be strictly increasing')
-    a=a[(a>=start)&(a<=end)];b=b[(b>=start)&(b<=end)]
-    if len(a)<3 or len(b)<3:return {'status':'unknown','reason':'Insufficient independently detected markers'}
-    distance=abs(a[:,None]-b[None,:])
-    nearest_a=distance.min(axis=1);nearest_b=distance.min(axis=0)
-    offsets=b[np.argmin(distance,axis=1)]-a
-    coverage=min(float(np.mean(nearest_a<=tolerance)),float(np.mean(nearest_b<=tolerance)))
-    return {'status':'aligned' if coverage>=.9 else 'mismatch',
-            'outgoing_count':len(a),'incoming_count':len(b),'matched_fraction':coverage,
-            'median_incoming_offset_seconds':float(np.median(offsets)),
-            'p90_absolute_offset_seconds':float(np.percentile(np.r_[nearest_a,nearest_b],90)),
-            'tolerance_seconds':tolerance}
-
-
-def bar_support(beats,downbeats,start,end):
-    beats=np.asarray(beats,dtype=float);downs=np.asarray(downbeats,dtype=float)
-    counts=[]
-    for left,right in zip(downs,downs[1:]):
-        if left<start or right>end:continue
-        counts.append(int(np.sum((beats>=left-.05)&(beats<right-.05))))
-    if len(counts)<3:return {'status':'unknown','reason':'Fewer than three complete bars','beat_counts':counts}
-    return {'status':'regular' if all(count==4 for count in counts) else 'unknown',
-            'beat_counts':counts,'reason':'Independent predicted 4/4 bar support; phrase alignment remains unverified'}
-
-
-def require_alignment(audit):
-    """Fail closed on missing, unstable or conflicting musical markers."""
-    if (audit.get('beats',{}).get('status')!='aligned'
-            or audit.get('downbeats',{}).get('status')!='aligned'
-            or len(audit.get('bar_support',[]))!=2
-            or any(item.get('status')!='regular' for item in audit['bar_support'])):
-        raise ValueError('Independent beat/bar timing is mismatched or uncertain; preview publication blocked')
+"""Research compatibility wrapper for shared independent beat/bar validation."""
+from backend.app.audio.beat_validation import VERSION, marker_alignment, bar_support, require_alignment
 
 
 def detect_prepared_alignment(paths,start,end,models):

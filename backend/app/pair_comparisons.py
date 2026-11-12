@@ -64,6 +64,9 @@ def candidate_features(candidate,validation):
 
 
 def generate_pair(store,job,owner,progress):
+    if job['payload'].get('pipeline') == 'improved-transitions-1':
+        from .improved_transitions import execute_job
+        return execute_job(store,job,owner,progress)
     from .auditions import evaluate_pair
     from .planning.contextual import propose_pair
     from .timeline_analysis import analyze_timeline

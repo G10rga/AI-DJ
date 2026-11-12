@@ -4,6 +4,10 @@ Milestone 1 supplies reusable preparation and evidence for the experimental
 planner. Generate/Compare activation is a later milestone. No default, model
 promotion, listening vote or training label is changed by analysis.
 
+Milestone 2 now consumes this foundation through the shared experimental backend;
+see [Vocal-preserving planner](vocal-planner.md). Public application/review flows
+remain milestone 3.
+
 ## Application interfaces
 
 `backend.app.timeline_analysis.analyze_registered_pair(workflow, track_ids)`
