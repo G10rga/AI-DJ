@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 from urllib.parse import unquote
 from contextlib import asynccontextmanager
 import json
+import mimetypes
 from uuid import uuid4
 from starlette.concurrency import run_in_threadpool
 from fastapi import FastAPI, HTTPException, Request
@@ -21,6 +22,8 @@ from .library import EXTENSIONS
 from scripts.setup_timeline import sha256
 
 ASSETS = Path(__file__).with_name('web_assets')
+# Windows registry MIME types can otherwise label ES modules as text/plain.
+mimetypes.add_type('text/javascript', '.mjs')
 
 
 def create_app(settings=None):
@@ -36,6 +39,8 @@ def create_app(settings=None):
         try:yield
         finally:manager.stop()
     app = FastAPI(title='AI-DJ local mixing', docs_url=None, redoc_url=None, lifespan=lifespan)
+    from .playlist.api import router as playlist_router
+    app.include_router(playlist_router(workflow))
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]'])
 
     @app.middleware('http')
@@ -47,12 +52,16 @@ def create_app(settings=None):
                 return JSONResponse({'detail': 'Cross-origin changes are not allowed'}, status_code=403)
         response = await call_next(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'"
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; media-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'"
         return response
 
     @app.get('/')
     def home():
-        return FileResponse(ASSETS/'mixes.html')
+        return FileResponse(ASSETS/'playlist.html')
+
+    @app.get('/playlist')
+    def playlist_page():
+        return FileResponse(ASSETS/'playlist.html')
 
     @app.get('/mixes')
     def mixes_page():

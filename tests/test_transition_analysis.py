@@ -215,7 +215,7 @@ class AnalysisMigrationTests(unittest.TestCase):
             c.commit();c.close()
             db=Database(path);db.initialize();db.initialize()
             with db.connection() as c:
-                self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0],10)
+                self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0],11)
                 self.assertIsNone(c.execute('PRAGMA foreign_key_check').fetchone())
                 self.assertEqual(c.execute('SELECT job_id FROM decision_models').fetchone()[0],'train')
                 c.execute("INSERT INTO workflow_jobs(id,kind,request_key,status,payload_json) VALUES ('analysis','transition_analysis','key2','queued','{}')")

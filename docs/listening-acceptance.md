@@ -102,14 +102,31 @@ saved corrections. Original abstentions remain in the frozen job list; this
 corrected comparison is linked in `corrected-comparison.json`.
 
 That corrected comparison completed successfully: protected vocal and plain
-crossfade alternatives both measured -20.0 LUFS. Pairwise listening feedback is
-still pending. The first transition's existing confirmed source marks were
-copied to five-song set review `6a1d5acfc50a4936aed356e012474ae5`, revision 1,
+crossfade alternatives both measured -20.0 LUFS. The latest saved vote is A
+(protected vocal), revision 2, with a blank note. The first transition's existing
+confirmed source marks were copied to five-song set review
+`6a1d5acfc50a4936aed356e012474ae5`, revision 1,
 after verifying identical ordered source hashes, complete effective evidence,
 timeline IDs and timing revisions. Provenance is retained in
 `cue-transfer-ea736016b5224335939ed8bd524c9fa1.json`. This reuses an existing source
 confirmation; it is not a new set-listening approval. Transitions 2, 3 and 4
 still need source review, and no five-song audio has been published.
+
+### Saved-session check (2026-11-20)
+
+The corrected short-edit comparison `04ac4633517e49d1a12fbe17aa146648`
+from review revision 9 is ready in Compare. A is protected vocal and B is
+plain crossfade. Both measure -19.99 LUFS. A vote is pending. Both audio slots
+in each completed comparison support range playback in the local app. The
+latest short-edit preview `c991410be706473a99bfc02ee96e00a3` from revision 11
+also supports range playback.
+
+The latest Armand → Gaskin preview at revision 4 was withheld after
+independent timing checks flagged the outgoing passage. An earlier preview
+from revision 3 is still playable from the review history. The sung-vocals
+and percussive-vocals pairs are awaiting initial source corrections. The
+five-song set is still awaiting source review and `legacy-v1` is still the
+app default.
 
 Open [Compare](http://127.0.0.1:8005/compare) for the five comparisons and
 [Learning](http://127.0.0.1:8005/learning) for the continuous set. The ordinary

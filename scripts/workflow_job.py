@@ -19,6 +19,9 @@ def cpu(settings,kind,request,destination,model=None):
 def execute(store,job,owner,work):
     settings=store.settings;identity=job['id'];payload=job['payload']
     progress=lambda text,amount:store.progress(identity,owner,text,amount)
+    if payload.get('pipeline') == 'playlist-1':
+        from backend.app.playlist.jobs import execute as execute_playlist
+        return execute_playlist(store,job,owner,progress)
     if payload.get('pipeline') == 'improved-transitions-1':
         from backend.app.improved_transitions import execute_job
         return execute_job(store,job,owner,progress)

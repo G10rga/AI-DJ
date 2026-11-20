@@ -56,6 +56,15 @@
         ],
         "createdAt": "2026-11-12T13:28:53.709Z",
         "reason": "Codex: live browser recheck confirms desktop h1/h2/body 22/16/14px and mobile 20/16/14px, meeting the 1.25 heading step. Static stylesheet-resolution false positive; preserve DESIGN.md typography."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "backend/app/web_assets/playlist.css"
+        ],
+        "createdAt": "2026-11-20T18:33:49.862Z",
+        "reason": "Project design system: DESIGN.md specifies self-hosted Inter across the AI DJ interface."
       }
     ]
   }

@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "development_pairs": [
+    [
+      {
+        "name": "George Morel - Let's Groove (SPOTISAVER).mp3",
+        "content_hash": "fad50f8e86c6659532b5120448c2f7972b7e895f82705953adcdc8b0230485d5"
+      },
+      {
+        "name": "Nightcrawlers, MK - Push The Feeling On - Mk Dub Revisited Edit (SPOTISAVER).mp3",
+        "content_hash": "8174122a469e99448a5ac862860f6a0f7185ff2dd8a5174bdf8ac544577415a0"
+      }
+    ],
+    [
+      {
+        "name": "Shakedown - At Night - Edit (SPOTISAVER).mp3",
+        "content_hash": "cfd8455b66415a5835061966f5f6f9dc306ee230c2d2f792f7cfaccdfba31bad"
+      },
+      {
+        "name": "Junior Jack - Stupidisco (SPOTISAVER).mp3",
+        "content_hash": "c2f02007a33bbf23c6f1ed0a835c097e349f4374d58130bc93fa7bb7753c49e3"
+      }
+    ]
+  ],
+  "five_song_integration": [
+    {
+      "name": "George Morel - Let's Groove (SPOTISAVER).mp3",
+      "content_hash": "fad50f8e86c6659532b5120448c2f7972b7e895f82705953adcdc8b0230485d5"
+    },
+    {
+      "name": "Nightcrawlers, MK - Push The Feeling On - Mk Dub Revisited Edit (SPOTISAVER).mp3",
+      "content_hash": "8174122a469e99448a5ac862860f6a0f7185ff2dd8a5174bdf8ac544577415a0"
+    },
+    {
+      "name": "Afro Medusa, Knee Deep - Pasilda - Knee Deep Mix (SPOTISAVER).mp3",
+      "content_hash": "123db090c66091f485a74aa55a7a3aab851fd8df8c944f9231618e1045187608"
+    },
+    {
+      "name": "Gadjo, Alexandra Prince - So Many Times (SPOTISAVER).mp3",
+      "content_hash": "8efe6700689496ba5800e99a8b71589bc6de8878c7f082fbfde6551324c34edc"
+    },
+    {
+      "name": "Gaskin - A Fresh Energy (SPOTISAVER).mp3",
+      "content_hash": "a6ad83803a54b44ee280b5ad824c8476965418c5a7ea9a9a73c87cbeed5c39d3"
+    }
+  ],
+  "held_out_pairs": [
+    [
+      {
+        "name": "Robin S - Love for Love (SPOTISAVER).mp3",
+        "content_hash": "8c849fc205a386bf0977f70dbc70e42188196ba7e17eee70abf7faa7d3103a6f"
+      },
+      {
+        "name": "Serge Devant, Hadley - Addicted (feat. Hadley) - Radio Edit (SPOTISAVER).mp3",
+        "content_hash": "47323f0369614c5fc49aeee6d911990a8bda56dbaa9aef95539449b8d60c8900"
+      }
+    ],
+    [
+      {
+        "name": "Terrence Parker - Somethin\u2019 Here - Original Mix (SPOTISAVER).mp3",
+        "content_hash": "bb568f67947dcac91c643f9efd2af545489bfe43f2a70f0ff570cd6562cfe118"
+      },
+      {
+        "name": "Rene & Peran - Give It To Me - Extended (SPOTISAVER).mp3",
+        "content_hash": "733370a38bb048336ff30d9dbbe353fbc57cd823d6b33ff26f466eee266864ce"
+      }
+    ],
+    [
+      {
+        "name": "The Adventures Of Stevie V - Dirty Cash (Money Talks) - Sold Out 7 Inch Mix (SPOTISAVER).mp3",
+        "content_hash": "b4e707c19d465ebf5214460834165c57c4845b8baf1de52557531111f4ed1c48"
+      },
+      {
+        "name": "Jerry Ropero, Denis the Menace, Sabor - Cora\u00e7ao (SPOTISAVER).mp3",
+        "content_hash": "15dfd8338b0a7aad5730140ea7884a4b547c02d036a24ec88cab7b4d9be34974"
+      }
+    ],
+    [
+      {
+        "name": "Kolby Fisher - Easy To Love (SPOTISAVER).mp3",
+        "content_hash": "8bb1245781829708045cf281ca073ca0518619eeede1dc55b6bdd3fde8272cc3"
+      },
+      {
+        "name": "Junior Jack, David Penn - Stupidisco (David Penn Remix) (SPOTISAVER).mp3",
+        "content_hash": "39c9b9f5ac034ab86d3492094cc6bb13c85e467b04fcdf9a7c7fe07a37eb5d7f"
+      }
+    ],
+    [
+      {
+        "name": "Robin S - Show Me Love - Extended Mix (SPOTISAVER).mp3",
+        "content_hash": "5f1e414c81b9ab5d74b1740ad183aa3605b798a87d188e401064b4f8390bec7e"
+      },
+      {
+        "name": "Junior Jack - My Feeling - Kick 'n Deep Mix (SPOTISAVER).mp3",
+        "content_hash": "c4d5684729e21afa0270a961f2daec3f68945cf05d26dc8c359d884164a0eafd"
+      }
+    ],
+    [
+      {
+        "name": "Kim English - Nitelife - Armand Van Helden Retail Mix (SPOTISAVER).mp3",
+        "content_hash": "e83dec37733c943e81cb7af673fe34752447d767404c905928d684075c4aa9f2"
+      },
+      {
+        "name": "Robin S - Show Me Love - Extended Mix (SPOTISAVER).mp3",
+        "content_hash": "5f1e414c81b9ab5d74b1740ad183aa3605b798a87d188e401064b4f8390bec7e"
+      }
+    ],
+    [
+      {
+        "name": "Serge Devant, Hadley - Addicted (feat. Hadley) - Radio Edit (SPOTISAVER).mp3",
+        "content_hash": "47323f0369614c5fc49aeee6d911990a8bda56dbaa9aef95539449b8d60c8900"
+      },
+      {
+        "name": "Spiller, Sophie Ellis-Bextor - Groovejet (If This Ain't Love) - Extended Vocal Mix (SPOTISAVER).mp3",
+        "content_hash": "d1ced9b501875387fa1f98ead643cbe0ac39b746fecd7a6063eb8f6961a27bd6"
+      }
+    ],
+    [
+      {
+        "name": "Kim English - Nitelife - Armand Van Helden Retail Mix (SPOTISAVER).mp3",
+        "content_hash": "e83dec37733c943e81cb7af673fe34752447d767404c905928d684075c4aa9f2"
+      },
+      {
+        "name": "SELKER - Too Much For Me (SPOTISAVER).mp3",
+        "content_hash": "177377ebb0020241781ec2db6c251ad41f8909a24eba96925bb887ece4291a9d"
+      }
+    ],
+    [
+      {
+        "name": "Herd & Fitz, Abigail Bailey, Jason Herd - I Just Can't Get Enough 2024 (SPOTISAVER).mp3",
+        "content_hash": "411cf418a6008e4693017b26b613441dc96b427640833827b8b76e462fe7eda2"
+      },
+      {
+        "name": "SELKER - Too Much For Me (SPOTISAVER).mp3",
+        "content_hash": "177377ebb0020241781ec2db6c251ad41f8909a24eba96925bb887ece4291a9d"
+      }
+    ],
+    [
+      {
+        "name": "Morgan Seatree, Florence + The Machine - Say My Name - Remix (SPOTISAVER).mp3",
+        "content_hash": "8c8058be31b9c3631732ad85b7f1fdccd946a7f898dd201f6e212177733e6176"
+      },
+      {
+        "name": "Jonas Blue, Malive - Edge of Desire (SPOTISAVER).mp3",
+        "content_hash": "5216754420c2f5f5ab1c641fbca736dc6e9f484b1e33f45adf732cd88babf653"
+      }
+    ],
+    [
+      {
+        "name": "Moloko, Boris Dlugosch, Michael Lange - Sing It Back - Boris Musical Mix - Edit (SPOTISAVER).mp3",
+        "content_hash": "3702c94ba9bcc478b818f7b3e5d155826dfbd6a76a8c4b40cf0eade37a9e1d76"
+      },
+      {
+        "name": "Soul Central - Strings of Life (Full Vocal Version) (SPOTISAVER).mp3",
+        "content_hash": "d77369a88c7b4a1313713c8a561a53ed21a46f98162dcacba2f45da9be6486f0"
+      }
+    ],
+    [
+      {
+        "name": "Morgan Seatree, Florence + The Machine - Say My Name - Remix (SPOTISAVER).mp3",
+        "content_hash": "8c8058be31b9c3631732ad85b7f1fdccd946a7f898dd201f6e212177733e6176"
+      },
+      {
+        "name": "Robin S - Love for Love (SPOTISAVER).mp3",
+        "content_hash": "8c849fc205a386bf0977f70dbc70e42188196ba7e17eee70abf7faa7d3103a6f"
+      }
+    ],
+    [
+      {
+        "name": "Junior Jack, David Penn - Stupidisco (David Penn Remix) (SPOTISAVER).mp3",
+        "content_hash": "39c9b9f5ac034ab86d3492094cc6bb13c85e467b04fcdf9a7c7fe07a37eb5d7f"
+      },
+      {
+        "name": "Kim English - Nitelife - Armand Van Helden Retail Mix (SPOTISAVER).mp3",
+        "content_hash": "e83dec37733c943e81cb7af673fe34752447d767404c905928d684075c4aa9f2"
+      }
+    ],
+    [
+      {
+        "name": "Junior Jack, David Penn - Stupidisco (David Penn Remix) (SPOTISAVER).mp3",
+        "content_hash": "39c9b9f5ac034ab86d3492094cc6bb13c85e467b04fcdf9a7c7fe07a37eb5d7f"
+      },
+      {
+        "name": "Hot 'N' Juicy, Mousse T. - Horny - '98 Radio Edit (SPOTISAVER).mp3",
+        "content_hash": "a6adc6d39520b775dc721600d61faf2c6612872828c65d06ee95b1493a967532"
+      }
+    ],
+    [
+      {
+        "name": "Techno Fixx, Stefano Noferini - Caution - Stefano Noferini Remix (SPOTISAVER).mp3",
+        "content_hash": "6859b888bd88f642d9ff08731bc111ef511ab4d9b39d316bdb5dfe9d5d8baf70"
+      },
+      {
+        "name": "Mr. Belt & Wezol - It's Not Right But It's Okay (SPOTISAVER).mp3",
+        "content_hash": "594300119a49037ea7e7051d2d17ae5c999b1e7b9755884defea1476be2ba0e4"
+      }
+    ],
+    [
+      {
+        "name": "Serge Devant, Hadley - Addicted (feat. Hadley) - Radio Edit (SPOTISAVER).mp3",
+        "content_hash": "47323f0369614c5fc49aeee6d911990a8bda56dbaa9aef95539449b8d60c8900"
+      },
+      {
+        "name": "Livin' Joy - Dreamer - Janice Robinson Vocal (SPOTISAVER).mp3",
+        "content_hash": "f0c15bb21035776efaa0dfdbf68c6342f1242825cd445a5e0c7eb9327fb3a675"
+      }
+    ],
+    [
+      {
+        "name": "Ari Bald - Loos (SPOTISAVER).mp3",
+        "content_hash": "924b3cca671bf1fc90dbfe775ad5e5b6969c0ec27cb5edac1665ff6f3ebd6e30"
+      },
+      {
+        "name": "Junior Jack, David Penn - Stupidisco (David Penn Remix) (SPOTISAVER).mp3",
+        "content_hash": "39c9b9f5ac034ab86d3492094cc6bb13c85e467b04fcdf9a7c7fe07a37eb5d7f"
+      }
+    ],
+    [
+      {
+        "name": "Todd Terry, Two Tons O' Fun - Do You Wanna - Todd Terry Edit (SPOTISAVER).mp3",
+        "content_hash": "8b4ce9e0d3f29df65f440248832abfa8c562c4d49644d3fa30bd592eb1353c32"
+      },
+      {
+        "name": "Kolby Fisher - Easy To Love (SPOTISAVER).mp3",
+        "content_hash": "8bb1245781829708045cf281ca073ca0518619eeede1dc55b6bdd3fde8272cc3"
+      }
+    ],
+    [
+      {
+        "name": "Rene & Peran - Give It To Me - Extended (SPOTISAVER).mp3",
+        "content_hash": "733370a38bb048336ff30d9dbbe353fbc57cd823d6b33ff26f466eee266864ce"
+      },
+      {
+        "name": "Moloko, Boris Dlugosch, Michael Lange - Sing It Back - Boris Musical Mix - Edit (SPOTISAVER).mp3",
+        "content_hash": "3702c94ba9bcc478b818f7b3e5d155826dfbd6a76a8c4b40cf0eade37a9e1d76"
+      }
+    ],
+    [
+      {
+        "name": "Herd & Fitz, Abigail Bailey, Jason Herd - I Just Can't Get Enough 2024 (SPOTISAVER).mp3",
+        "content_hash": "411cf418a6008e4693017b26b613441dc96b427640833827b8b76e462fe7eda2"
+      },
+      {
+        "name": "Terrence Parker - Somethin\u2019 Here - Original Mix (SPOTISAVER).mp3",
+        "content_hash": "bb568f67947dcac91c643f9efd2af545489bfe43f2a70f0ff570cd6562cfe118"
+      }
+    ]
+  ],
+  "weights_status": "Development heuristic, never calibrated on held-out pairs. Evaluation begins after weights are frozen.",
+  "notes": "Held-out sources excluded from this development split. Songs may recur across held-out pairs and can have appeared in legacy experiments. Genre and owner usability judgments are pending.",
+  "planner_version": "playlist-plan-1",
+  "weights_version": "playlist-costs-development-1",
+  "weights": {
+    "vocal_collision": 0.24,
+    "vocal_truncation": 0.2,
+    "structure": 0.1,
+    "harmony": 0.08,
+    "bass": 0.08,
+    "energy": 0.08,
+    "stretch": 0.08,
+    "omitted": 0.14
+  }
+}

@@ -229,7 +229,7 @@ class TransitionReviewTests(unittest.TestCase):
         self.assertEqual(self.store.job(identity)['status'],'needs_review')
         self.assertEqual(state(self.store,identity)['revision'],0)
         with self.store.db.connection() as c:
-            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0],10)
+            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0],11)
             self.assertIsNone(c.execute('PRAGMA foreign_key_check').fetchone())
 
     def test_new_comparison_feedback_is_separate_and_neither_only_excludes_this_ordered_pair(self):

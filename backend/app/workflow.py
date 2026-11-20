@@ -147,11 +147,12 @@ class Workflow:
         return self.enqueue('test_mix',{'model_id':None if baseline else model_id,'baseline':baseline,
             'sources':[catalog[t] for t in track_ids],'seconds':float(seconds),'pipeline':pipeline})
 
-    def enqueue(self,kind,payload):
+    def enqueue(self,kind,payload,*,precondition=None):
         key=hashlib.sha256((kind+canonical(payload)).encode()).hexdigest()
         identity=uuid4().hex
         with self.db.connection() as c:
             c.execute('BEGIN IMMEDIATE')
+            if precondition is not None: precondition(c)
             existing=c.execute("SELECT id FROM workflow_jobs WHERE request_key=? AND status IN ('queued','running')",(key,)).fetchone()
             if existing:return self.job(existing[0])
             c.execute('INSERT INTO workflow_jobs(id,kind,request_key,status,payload_json) VALUES (?,?,?,?,?)',
@@ -176,7 +177,7 @@ class Workflow:
 
     def jobs(self):
         with self.db.connection() as c:
-            ids=[r[0] for r in c.execute('SELECT id FROM workflow_jobs ORDER BY rowid DESC LIMIT 30')]
+            ids=[r[0] for r in c.execute("SELECT id FROM workflow_jobs WHERE kind!='playlist' ORDER BY rowid DESC LIMIT 30")]
         return [self.job(i) for i in ids]
 
     def models(self):
@@ -262,6 +263,13 @@ class Workflow:
             if status in ('succeeded','needs_review') and row['cancel_requested']:
                 status='cancelled';result=None;error='Cancelled by owner'
             payload=json.loads(row['payload_json'])
+            if payload.get('pipeline')=='playlist-1':
+                from .playlist.store import publish
+                project = c.execute('SELECT revision FROM playlist_projects WHERE id=?',(payload['project_id'],)).fetchone()
+                if project is None or project[0]!=payload['project_revision']:
+                    status='interrupted';result=None;error='Project changed; reload and mix the current revision'
+                elif status in ('succeeded','needs_review') and (not result or not publish(c,row,payload,result)):
+                    status='failed';result=None;error='The playlist job returned no publishable plan'
             if status in ('succeeded','needs_review') and payload.get('parent_job_id'):
                 parent=c.execute('SELECT status FROM workflow_jobs WHERE id=?',(payload['parent_job_id'],)).fetchone()
                 if parent is None or parent['status']=='cancelled':

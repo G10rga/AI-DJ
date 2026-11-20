@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Playlist studio · AI DJ</title>
+  <link rel="stylesheet" href="/assets/playlist.css">
+  <script type="module" src="/assets/playlist.mjs"></script>
+</head>
+<body>
+  <header class="chrome"><a class="brand" href="/">AI DJ</a><nav aria-label="Workspace"><a href="/playlist" aria-current="page">Playlist</a><a href="/mixes">Saved mixes</a><a href="/compare">Compare</a><a href="/timelines">Timelines</a></nav></header>
+  <main>
+    <aside>
+      <div class="row"><h2>Library</h2><label class="button upload">Upload<input id="upload" type="file" accept="audio/*,.flac,.aiff" multiple></label></div>
+      <label>Find a song<input id="search" type="search" placeholder="Search library"></label>
+      <ul id="library" class="library"></ul>
+      <label>Saved playlists<select id="projects"><option value="">New playlist</option></select></label>
+    </aside>
+    <section class="workspace">
+      <div class="hero">
+        <div><h1>Playlist studio</h1><p>Put your songs in order. Mix them into one continuous set.</p></div>
+        <div class="row"><button id="reorder">Smart Reorder</button><button id="mix" class="primary">Mix</button></div>
+      </div>
+      <div class="row title"><label>Playlist name<input id="name" maxlength="160" value="Untitled playlist"></label><span id="count"></span></div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <progress id="progress" max="1" hidden></progress>
+      <button id="cancel" hidden>Cancel job</button>
+      <div id="suggestion" class="row" hidden></div>
+      <ol id="tracks" class="tracks"></ol>
+      <section id="transition" class="panel" hidden>
+        <div class="row spread"><h2 id="join-title">Transition</h2><div class="row"><button id="undo">Undo</button><button id="redo">Redo</button><button id="reset">Reset to Auto</button></div></div>
+        <p id="join-note"></p>
+        <p id="edit-note" role="status"></p>
+        <label>Waveform view<select id="wave-zoom"><option value="0">Full songs</option><option value="60">60 seconds around cues</option><option value="16">16 seconds around cues</option></select></label>
+        <div class="decks">
+          <section><h3 id="a-name"></h3><canvas id="a-wave" aria-label="Outgoing source waveform"></canvas><label>Outgoing cue (seconds)<input id="a-cue" type="number" min="0" step=".001"></label></section>
+          <section><h3 id="b-name"></h3><canvas id="b-wave" aria-label="Incoming source waveform"></canvas><label>Incoming cue (seconds)<input id="b-cue" type="number" min="0" step=".001"></label></section>
+        </div>
+        <div class="row">
+          <label>Overlap<select id="bars"><option>2</option><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label>
+          <label>Preset<select id="preset"><option value="blend">Gradual blend</option><option value="bass-swap">Bass swap</option><option value="filter">Filter blend</option></select></label>
+          <label>Outgoing vocal ends (seconds)<input id="vocal" type="number" min="0" step=".001"></label>
+          <button id="save">Save and prepare</button>
+        </div>
+        <div class="transport row"><button id="audition">Play around transition</button><button id="pause">Pause</button><label><input id="loop" type="checkbox"> Loop</label><label>Listen to<select id="solo"><option value="both">Both songs</option><option value="0">Outgoing only</option><option value="1">Incoming only</option></select></label><label class="seek">Preview position<input id="seek" type="range" min="0" value="0" step=".01"></label></div>
+        <details open><summary>Automation curves</summary>
+          <div class="row"><label>Song<select id="curve-side"><option value="a">Outgoing</option><option value="b">Incoming</option></select></label><label>Control<select id="curve-control"><option value="gain">Volume</option><option value="low">Low EQ</option><option value="mid">Mid EQ</option><option value="high">High EQ</option><option value="hp">High pass</option><option value="lp">Low pass</option></select></label><button id="add-point">Add point</button></div>
+          <canvas id="curve" aria-label="Automation graph"></canvas><div id="points" class="row"></div>
+        </details>
+        <details><summary>Beat grid correction</summary>
+          <form id="grid" class="row">
+            <label>Song<select id="grid-side"><option value="0">Outgoing</option><option value="1">Incoming</option></select></label>
+            <label>BPM<input id="bpm" type="number" required min="30" max="300" step=".001"></label>
+            <label>First downbeat (seconds)<input id="downbeat" type="number" required min="0" step=".001"></label>
+            <label>Bar phase<input id="phase" type="number" min="0" max="3" value="0"></label>
+            <label>Local anchors (beat:seconds)<input id="anchors" placeholder="16:8.12, 32:16.2"></label>
+            <label><input id="local-tempo" type="checkbox"> Keep detected local timing</label>
+            <button>Save grid and prepare</button>
+          </form>
+          <audio id="original-audio" controls preload="none" aria-label="Original song for beat grid correction"></audio>
+          <button id="mark-downbeat">Use playback position as first downbeat</button>
+        </details>
+        <details><summary>Candidate and timing details</summary><pre id="diagnostics"></pre></details>
+      </section>
+      <section id="export" class="panel"><div class="row spread"><h2>Full set</h2><button id="render">Render MP3 and WAV</button></div><p id="export-note"></p><audio id="full-audio" controls preload="none" hidden></audio><div id="downloads" class="row"></div></section>
+    </section>
+  </main>
+</body>
+</html>

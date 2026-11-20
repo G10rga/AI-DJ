@@ -30,7 +30,8 @@ class PlaybackTests(unittest.TestCase):
         self.client=TestClient(create_app(Settings(data_root=self.root)),base_url='http://127.0.0.1')
 
     def test_mix_catalog_play_seek_download_and_tracklist(self):
-        self.assertIn('Your mixed sets',self.client.get('/').text)
+        self.assertIn('Playlist studio',self.client.get('/').text)
+        self.assertIn('Your mixed sets',self.client.get('/mixes').text)
         self.assertIn('Source track playback',self.client.get('/timelines').text)
         mix=self.client.get('/api/v1/mixes').json()['mixes'][0]
         self.assertEqual(mix['title'],'First song → Second song')

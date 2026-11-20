@@ -71,7 +71,7 @@ class PersistenceTests(unittest.TestCase):
         self.db.initialize()
         self.assertEqual(self.db.load_plan('mix', 1), self.plan)
         with self.db.connection() as c:
-            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0], 10)
+            self.assertEqual(c.execute('PRAGMA user_version').fetchone()[0], 11)
 
 
 class SharedRenderTests(unittest.TestCase):
